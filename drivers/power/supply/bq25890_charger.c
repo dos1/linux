@@ -115,6 +115,10 @@ struct bq25890_device {
 	struct bq25890_init_data init_data;
 	struct bq25890_state state;
 
+	/* ocv capacity table */
+	struct power_supply_battery_ocv_table *cap_table;
+	int table_len;
+
 	struct mutex lock; /* protect state data */
 };
 
@@ -435,7 +439,7 @@ static int bq25890_power_supply_get_property(struct power_supply *psy,
 	struct bq25890_device *bq = power_supply_get_drvdata(psy);
 	struct bq25890_state state;
 	bool do_adc_conv;
-	int ret;
+	int ret, ocv;
 
 	mutex_lock(&bq->lock);
 	/* update state in case we lost an interrupt */
@@ -566,6 +570,21 @@ static int bq25890_power_supply_get_property(struct power_supply *psy,
 
 		/* convert TS percentage into rough temperature */
 		val->intval = bq25890_find_val(ret, TBL_TSPCT);
+		break;
+
+	case POWER_SUPPLY_PROP_CAPACITY:
+		if (!bq->cap_table)
+			return -ENODEV;
+
+		ret = bq25890_field_read(bq, F_SYSV); /* read measured value */
+		if (ret < 0)
+			return ret;
+
+		/* converted_val = 2.304V + ADC_val * 20mV (table 10.3.15) */
+		ocv = 2304000 + ret * 20000;
+		val->intval = power_supply_ocv2cap_simple(bq->cap_table,
+							  bq->table_len, ocv);
+		dev_info(bq->dev, "Capacity for %d is %d%%", ocv, val->intval);
 		break;
 
 	default:
@@ -756,6 +775,7 @@ static const enum power_supply_property bq25890_power_supply_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CAPACITY,
 };
 
 static char *bq25890_charger_supplied_to[] = {
@@ -956,6 +976,35 @@ static int bq25890_fw_probe(struct bq25890_device *bq)
 	return 0;
 }
 
+static int bq25890_battery_init(struct bq25890_device *bq)
+{
+	struct power_supply_battery_ocv_table *table;
+	struct power_supply_battery_info *info;
+	int ret;
+
+	/* battery information is optional */
+	ret = power_supply_get_battery_info(bq->charger, &info);
+	if (ret < 0) {
+		dev_info(bq->dev, "No battery found: %d", ret);
+		return 0;
+	}
+
+	/* We use a single OCV table at 20 C */
+	table = power_supply_find_ocv2cap_table(info, 20, &bq->table_len);
+	if (!table)
+		return -EINVAL;
+
+	bq->cap_table = devm_kmemdup(bq->dev, table,
+				     bq->table_len * sizeof(*table),
+				     GFP_KERNEL);
+	if (!bq->cap_table) {
+		power_supply_put_battery_info(bq->charger, info);
+		return -ENOMEM;
+	}
+	power_supply_put_battery_info(bq->charger, info);
+	return 0;
+}
+
 static int bq25890_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -1031,7 +1080,7 @@ static int bq25890_probe(struct i2c_client *client,
 
 	ret = bq25890_power_supply_init(bq);
 	if (ret < 0) {
-		dev_err(dev, "Failed to register power supply\n");
+		dev_err_probe(dev, ret, "Failed to register power supply\n");
 		goto err_unregister_usb_notifier;
 	}
 
@@ -1041,6 +1090,12 @@ static int bq25890_probe(struct i2c_client *client,
 					BQ25890_IRQ_PIN, bq);
 	if (ret)
 		goto err_unregister_usb_notifier;
+
+	ret = bq25890_battery_init(bq);
+	if (ret < 0) {
+		dev_err(dev, "Failed get battery information\n");
+		goto err_unregister_usb_notifier;
+	}
 
 	return 0;
 
