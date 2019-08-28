@@ -15,8 +15,9 @@
 #include <linux/smp.h>
 #include <linux/cpuidle.h>
 
-#define IMX_SIP_GPC		0xC2000000
-#define IMX_SIP_GPC_CORE_WAKE	0x05
+#define FSL_SIP_GPC			0xC2000000
+#define FSL_SIP_CONFIG_GPC_SET_WAKE	0x02
+#define FSL_SIP_CONFIG_GPC_CORE_WAKE	0x05
 
 #define IMR_NUM			4
 #define GPC_MAX_IRQS            (IMR_NUM * 32)
@@ -91,7 +92,7 @@ static void imx_gpcv2_raise_softirq(const struct cpumask *mask,
 	__gic_v3_smp_cross_call(mask, irq);
 
 	/* now call into EL3 and take care of the wakeup */
-	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_CORE_WAKE,
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_CORE_WAKE,
 			*cpumask_bits(mask), 0, 0, 0, 0, 0, &res);
 }
 
@@ -125,6 +126,7 @@ static void imx_gpcv2_wake_request_fixup(void)
 static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 {
 	struct gpcv2_irqchip_data *cd = d->chip_data;
+	struct arm_smccc_res res;
 	unsigned int idx = d->hwirq / 32;
 	unsigned long flags;
 	u32 mask, val;
@@ -134,7 +136,13 @@ static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 	val = cd->wakeup_sources[idx];
 
 	cd->wakeup_sources[idx] = on ? (val & ~mask) : (val | mask);
+
+#ifdef CONFIG_ARM64
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_SET_WAKE,
+			d->hwirq, on, 0, 0, 0, 0, &res);
+#endif
 	raw_spin_unlock_irqrestore(&cd->rlock, flags);
+
 
 	/*
 	 * Do *not* call into the parent, as the GIC doesn't have any
