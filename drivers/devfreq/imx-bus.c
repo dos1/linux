@@ -16,6 +16,7 @@ struct imx_bus {
 	struct devfreq_dev_profile profile;
 	struct devfreq *devfreq;
 	struct clk *clk;
+	struct devfreq_passive_data passive_data;
 	struct platform_device *icc_pdev;
 };
 
@@ -100,6 +101,8 @@ static int imx_bus_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct imx_bus *priv;
 	const char *gov = DEVFREQ_GOV_USERSPACE;
+	struct device_node *passive_parent_node;
+	void *gov_data = NULL;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -136,8 +139,33 @@ static int imx_bus_probe(struct platform_device *pdev)
 	priv->profile.get_cur_freq = imx_bus_get_cur_freq;
 	priv->profile.initial_freq = clk_get_rate(priv->clk);
 
+	/* Handle passive devfreq parent link */
+	passive_parent_node = of_parse_phandle(dev->of_node, "fsl,ddrc", 0);
+	if (passive_parent_node) {
+		dev_info(dev, "passive parent node %pOF\n", passive_parent_node);
+
+		priv->passive_data.parent = devfreq_get_devfreq_by_node(
+				passive_parent_node);
+		of_node_put(passive_parent_node);
+
+		if (!IS_ERR(priv->passive_data.parent)) {
+			dev_info(dev, "passive parent device %s\n",
+				 dev_name(priv->passive_data.parent->dev.parent));
+			gov = DEVFREQ_GOV_PASSIVE;
+			gov_data = &priv->passive_data;
+		} else if (priv->passive_data.parent == ERR_PTR(-EPROBE_DEFER)) {
+			ret = -EPROBE_DEFER;
+			goto err;
+		} else if (priv->passive_data.parent != ERR_PTR(-ENODEV)) {
+			// -ENODEV means no parent: not an error.
+			ret = PTR_ERR(priv->passive_data.parent);
+			dev_warn(dev, "failed to init passive parent: %d\n", ret);
+			goto err;
+		}
+	}
+
 	priv->devfreq = devm_devfreq_add_device(dev, &priv->profile,
-						gov, NULL);
+						gov, gov_data);
 	if (IS_ERR(priv->devfreq)) {
 		ret = PTR_ERR(priv->devfreq);
 		dev_err(dev, "failed to add devfreq device: %d\n", ret);
