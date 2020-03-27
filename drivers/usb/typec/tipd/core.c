@@ -9,6 +9,8 @@
 #include <linux/debugfs.h>
 #include <linux/i2c.h>
 #include <linux/acpi.h>
+#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/power_supply.h>
@@ -110,6 +112,8 @@ struct tps6598x {
 	struct dentry *dev_dentry;
 	struct dentry *customer_user_dentry;
 #endif
+	bool dp;
+	struct extcon_dev *extcon;
 };
 
 static enum power_supply_property tps6598x_psy_props[] = {
@@ -348,9 +352,18 @@ static int tps6598x_connect(struct tps6598x *tps, u32 status)
 static int
 tps6598x_update_data_status(struct tps6598x *tps, u32 status)
 {
+	bool dp;
+
 	tps6598x_set_data_role(tps, TPS_STATUS_TO_TYPEC_DATAROLE(status),
 			       !!(tps->data_status & TPS_DATA_STATUS_DATA_CONNECTION));
 	trace_tps6598x_data_status(tps->data_status);
+
+	dp = !!(tps->data_status & TPS_DATA_STATUS_DP_CONNECTION);
+	if (tps->dp != dp) {
+		tps->dp = dp;
+		extcon_set_state_sync(tps->extcon, EXTCON_DISP_DP, tps->dp);
+		extcon_sync(tps->extcon, EXTCON_DISP_DP);
+	}
 	return 0;
 }
 
@@ -890,6 +903,11 @@ static int devm_tps6598_psy_register(struct tps6598x *tps)
 	return PTR_ERR_OR_ZERO(tps->psy);
 }
 
+static const unsigned int tps6598x_extcon_cable[] = {
+	EXTCON_DISP_DP,
+	EXTCON_NONE,
+};
+
 static int tps6598x_probe(struct i2c_client *client)
 {
 	irq_handler_t irq_handler = tps6598x_interrupt;
@@ -1026,6 +1044,23 @@ static int tps6598x_probe(struct i2c_client *client)
 		goto err_role_put;
 	}
 	fwnode_handle_put(fwnode);
+
+	tps->extcon = devm_extcon_dev_allocate(tps->dev, tps6598x_extcon_cable);
+	if (IS_ERR(tps->extcon)) {
+		dev_err(tps->dev, "failed to allocate memory for extcon\n");
+		ret = PTR_ERR(tps->extcon);
+		goto err_role_put;
+	}
+
+	/* Register extcon device */
+	ret = devm_extcon_dev_register(tps->dev, tps->extcon);
+	if (ret) {
+		dev_err(tps->dev, "failed to register extcon device: %d\n", ret);
+		goto err_role_put;
+	}
+
+	/* set initial state */
+	extcon_set_state_sync(tps->extcon, EXTCON_DISP_DP, false);
 
 	if (status & TPS_STATUS_PLUG_PRESENT) {
 		ret = tps6598x_read16(tps, TPS_REG_POWER_STATUS, &tps->pwr_status);
