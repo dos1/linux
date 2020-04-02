@@ -153,13 +153,13 @@ static int imx_bus_probe(struct platform_device *pdev)
 				 dev_name(priv->passive_data.parent->dev.parent));
 			gov = DEVFREQ_GOV_PASSIVE;
 			gov_data = &priv->passive_data;
-		} else if (priv->passive_data.parent == ERR_PTR(-EPROBE_DEFER)) {
-			ret = -EPROBE_DEFER;
-			goto err;
 		} else if (priv->passive_data.parent != ERR_PTR(-ENODEV)) {
 			// -ENODEV means no parent: not an error.
 			ret = PTR_ERR(priv->passive_data.parent);
 			dev_warn(dev, "failed to init passive parent: %d\n", ret);
+			goto err;
+		} else {
+			ret = -EPROBE_DEFER;
 			goto err;
 		}
 	}
