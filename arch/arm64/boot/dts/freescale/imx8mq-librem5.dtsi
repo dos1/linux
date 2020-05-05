@@ -1197,6 +1197,18 @@
 	pinctrl-0 = <&pinctrl_i2c4>;
 	status = "okay";
 
+	/* Dongwoon DW9714A - Voice Coil Motor for 13MP Camera */
+	vcm@c {
+		reg = <0x0c>;
+		status = "disabled";
+	};
+
+	/* Samsung S5K3L6XX - 13MP Rear-Facing Camera */
+	camera2@10 {
+		reg = <0x10>;
+		status = "disabled";
+	};
+
 	bat: fuel-gauge@36 {
 		compatible = "maxim,max17055";
 		reg = <0x36>;
