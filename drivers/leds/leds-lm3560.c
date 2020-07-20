@@ -216,8 +216,9 @@ static int lm3560_brightness_set(struct led_classdev *cdev, enum led_brightness 
 	}
 
 	ret = regmap_update_bits(priv->regmap, LM3560_TORCH_BRIGHT_REG,
-				 LM3560_TORCH_BRIGHT_LED2_MASK,
-				 ((brightness - 1) << LM3560_TORCH_BRIGHT_LED2_SHIFT));
+				 LM3560_TORCH_BRIGHT_LED2_MASK | LM3560_TORCH_BRIGHT_LED1_MASK,
+				 ((brightness / 2 - 1) << LM3560_TORCH_BRIGHT_LED2_SHIFT) |
+				 ((brightness / 2 + brightness % 2 - 1) << LM3560_TORCH_BRIGHT_LED1_SHIFT));
 	if (ret < 0)
 		goto out;
 
@@ -225,7 +226,7 @@ static int lm3560_brightness_set(struct led_classdev *cdev, enum led_brightness 
 				 LM3560_ENABLE_MASK |
 				 LM3560_ENABLE_LED1_FLAG |
 				 LM3560_ENABLE_LED2_FLAG,
-				 LM3560_ENABLE_LED2_FLAG |
+				 LM3560_ENABLE_LED1_FLAG | LM3560_ENABLE_LED2_FLAG |
 				 LM3560_ENABLE_TORCH);
 out:
 	mutex_unlock(&priv->lock);
@@ -290,7 +291,7 @@ static int lm3560_flash_brightness_set(struct led_classdev_flash *fled_cdev, u32
 
 	brightness_val = brightness / LM3560_FLASH_BRIGHT_STEP_uA;
 	ret = regmap_update_bits(priv->regmap, LM3560_FLASH_BRIGHT_REG,
-				 LM3560_FLASH_BRIGHT_LED2_MASK,
+				 LM3560_FLASH_BRIGHT_LED2_MASK | LM3560_FLASH_BRIGHT_LED1_MASK,
 				 ((brightness_val - 1) << LM3560_FLASH_BRIGHT_LED1_SHIFT) |
 				 ((brightness_val - 1) << LM3560_FLASH_BRIGHT_LED2_SHIFT));
 
@@ -370,7 +371,7 @@ static int lm3560_register_leds(struct lm3560_data *priv, struct fwnode_handle *
 	led_cdev = &priv->fled_cdev.led_cdev;
 	led_cdev->brightness_set_blocking = lm3560_brightness_set;
 	led_cdev->max_brightness = DIV_ROUND_UP(priv->torch_current_max,
-						LM3560_TORCH_BRIGHT_STEP_uA);
+						LM3560_TORCH_BRIGHT_STEP_uA) * 2;
 	led_cdev->flags |= LED_DEV_CAP_FLASH;
 
 	init_data.fwnode = fwnode;

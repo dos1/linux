@@ -17,20 +17,28 @@ before_script:
     - librem5
 
 build:aarch64:
-  <<: *tags
+  tags:
+    - librem5
   stage: build
-  allow_failure: true
-  variables:
-    CROSS_BUILD: "ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-"
+#  allow_failure: true
+#  variables:
+#    CROSS_BUILD: "ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-"
+#  script:
+#    - make      ${CROSS_BUILD} librem5_defconfig
+#    - KCFLAGS="-Werror" make -j 4 ${CROSS_BUILD} Image dtbs modules
+#    - make -j 4 ${CROSS_BUILD} INSTALL_MOD_PATH=modules/ modules_install
   script:
-    - make      ${CROSS_BUILD} librem5_defconfig
-    - KCFLAGS="-Werror" make -j 4 ${CROSS_BUILD} Image dtbs modules
-    - make -j 4 ${CROSS_BUILD} INSTALL_MOD_PATH=modules/ modules_install
+#    - git clean -dfx
+    - git checkout -f
+    - rm -f ../* || true
+    - rm -rf "${WORKING_DIR}"; mkdir -p "${WORKING_DIR}"
+    - debian/rules debian/control
+    - dch -l +gitlabci "Gitlab ci amd64 build of ${CI_COMMIT_SHA}"
+    - dpkg-buildpackage -j4 -uc -us -B  --host-arch=arm64
+    - cp -l ../*.deb ../*.changes ../*.buildinfo "${WORKING_DIR}/"
   artifacts:
     paths:
-      - arch/arm64/boot/Image
-      - arch/arm64/boot/dts/freescale/imx8mq-librem5*.dtb
-      - modules/
+      - "${WORKING_DIR}"
     expire_in: 1 week
 
 build:deb:
