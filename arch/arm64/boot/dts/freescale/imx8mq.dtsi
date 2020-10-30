@@ -320,7 +320,7 @@
 
 			trips {
 				gpu_alert: gpu-alert {
-					temperature = <80000>;
+					temperature = <65000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};
