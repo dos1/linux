@@ -94,6 +94,7 @@ config ARM_EXYNOS_BUS_DEVFREQ
 config ARM_IMX_BUS_DEVFREQ
 	tristate "i.MX Generic Bus DEVFREQ Driver"
 	depends on ARCH_MXC || COMPILE_TEST
+	select DEVFREQ_GOV_PASSIVE
 	select DEVFREQ_GOV_USERSPACE
 	help
 	  This adds the generic DEVFREQ driver for i.MX interconnects. It
@@ -103,6 +104,8 @@ config ARM_IMX8M_DDRC_DEVFREQ
 	tristate "i.MX8M DDRC DEVFREQ Driver"
 	depends on (ARCH_MXC && HAVE_ARM_SMCCC) || \
 		(COMPILE_TEST && HAVE_ARM_SMCCC)
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select DEVFREQ_GOV_PASSIVE
 	select DEVFREQ_GOV_USERSPACE
 	help
 	  This adds the DEVFREQ driver for the i.MX8M DDR Controller. It allows

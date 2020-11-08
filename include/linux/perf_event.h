@@ -293,6 +293,7 @@ struct pmu {
 
 	struct module			*module;
 	struct device			*dev;
+	struct device			*parent_dev;
 	const struct attribute_group	**attr_groups;
 	const struct attribute_group	**attr_update;
 	const char			*name;
@@ -961,6 +962,14 @@ extern void perf_event_itrace_started(struct perf_event *event);
 
 extern int perf_pmu_register(struct pmu *pmu, const char *name, int type);
 extern void perf_pmu_unregister(struct pmu *pmu);
+
+#ifdef CONFIG_OF
+extern struct pmu* perf_get_pmu_by_node(struct device_node *node);
+#else
+static inline struct pmu* perf_get_pmu_by_node(struct device_node *node) {
+	return NULL;
+}
+#endif
 
 extern void __perf_event_task_sched_in(struct task_struct *prev,
 				       struct task_struct *task);
