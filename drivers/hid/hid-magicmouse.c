@@ -17,7 +17,9 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/usb/input.h>
 
+#include "usbhid/usbhid.h"
 #include "hid-ids.h"
 
 static bool emulate_3button = true;
@@ -51,8 +53,15 @@ static bool report_undeciphered;
 module_param(report_undeciphered, bool, 0644);
 MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state field using a MSC_RAW event");
 
-#define TRACKPAD2_2021_BT_VERSION 0x110
+static unsigned int feedback_click = 0x060617;
+module_param(feedback_click, uint, 0644);
+MODULE_PARM_DESC(feedback_click, "Feedback configuration for the click event");
 
+static unsigned int feedback_release = 0x000014;
+module_param(feedback_release, uint, 0644);
+MODULE_PARM_DESC(feedback_release, "Feedback configuration for the release event");
+
+#define TRACKPAD2_2021_BT_VERSION 0x110
 #define TRACKPAD_REPORT_ID 0x28
 #define TRACKPAD2_USB_REPORT_ID 0x02
 #define TRACKPAD2_BT_REPORT_ID 0x31
@@ -519,6 +528,66 @@ static int magicmouse_event(struct hid_device *hdev, struct hid_field *field,
 	return 0;
 }
 
+static int magicmouse_setup_feedback(struct hid_device *hdev,
+	const struct hid_device_id *id)
+{
+	const u8 mt2_click[] = {0xF2, 0x22, 0x01, 0x00, 0x78, 0x02, 0x00, 0x24, 0x30, 0x06, 0x01, 0x00, 0x18, 0x48, 0x13};
+	const u8 mt2_release[] = {0xF2, 0x23, 0x01, 0x00, 0x78, 0x02, 0x00, 0x24, 0x30, 0x06, 0x01, 0x00, 0x18, 0x48, 0x13};
+
+	struct usb_device *usb;
+	u8 *buf;
+
+	if (id->product == USB_DEVICE_ID_APPLE_MAGICTRACKPAD2) {
+		if (id->vendor == BT_VENDOR_ID_APPLE) {
+			buf = kmemdup(mt2_click, sizeof(mt2_click), GFP_KERNEL);
+			if (!buf) {
+				return -ENOMEM;
+			}
+			buf[3] = (u8)(feedback_click >> 0);
+			buf[6] = (u8)(feedback_click >> 8);
+			buf[11] = (u8)(feedback_click >> 16);
+			hid_hw_raw_request(hdev, buf[0], buf, sizeof(mt2_click),
+						HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+			kfree(buf);
+
+			buf = kmemdup(mt2_release, sizeof(mt2_release), GFP_KERNEL);
+			if (!buf) {
+				return -ENOMEM;
+			}
+			buf[3] = (u8)(feedback_release >> 0);
+			buf[6] = (u8)(feedback_release >> 8);
+			buf[11] = (u8)(feedback_release >> 16);
+			hid_hw_raw_request(hdev, buf[0], buf, sizeof(mt2_release),
+						HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+			kfree(buf);
+		} else { /* USB_VENDOR_ID_APPLE */
+			usb = hid_to_usb_dev(hdev);
+			buf = kmemdup(mt2_click + 1, sizeof(mt2_click) - sizeof(mt2_click[0]), GFP_KERNEL);
+			if (!buf) {
+				return -ENOMEM;
+			}
+			buf[2] = (u8)(feedback_click >> 0);
+			buf[5] = (u8)(feedback_click >> 8);
+			buf[10] = (u8)(feedback_click >> 16);
+			usb_control_msg(usb, usb_sndctrlpipe(usb, 0), 9, 0x21, 0x0322, 2, buf, sizeof(mt2_click) - sizeof(mt2_click[0]),
+						USB_CTRL_SET_TIMEOUT);
+			kfree(buf);
+
+			buf = kmemdup(mt2_release + 1, sizeof(mt2_release) - sizeof(mt2_release[0]), GFP_KERNEL);
+			if (!buf) {
+				return -ENOMEM;
+			}
+			buf[2] = (u8)(feedback_release >> 0);
+			buf[5] = (u8)(feedback_release >> 8);
+			buf[10] = (u8)(feedback_release >> 16);
+			usb_control_msg(usb, usb_sndctrlpipe(usb, 0), 9, 0x21, 0x0323, 2, buf, sizeof(mt2_release) - sizeof(mt2_release[0]),
+						USB_CTRL_SET_TIMEOUT);
+			kfree(buf);
+		}
+	}
+	return 0;
+}
+
 static int magicmouse_setup_input(struct input_dev *input, struct hid_device *hdev)
 {
 	int error;
@@ -714,6 +783,7 @@ static int magicmouse_enable_multitouch(struct hid_device *hdev)
 	const u8 feature_mt_mouse2[] = { 0xF1, 0x02, 0x01 };
 	const u8 feature_mt_trackpad2_usb[] = { 0x02, 0x01 };
 	const u8 feature_mt_trackpad2_bt[] = { 0xF1, 0x02, 0x01 };
+
 	u8 *buf;
 	int ret;
 	int feature_size;
@@ -885,6 +955,7 @@ static int magicmouse_probe(struct hid_device *hdev,
 		schedule_delayed_work(&msc->work, msecs_to_jiffies(500));
 	}
 
+	magicmouse_setup_feedback(hdev, id);
 	return 0;
 err_stop_hw:
 	del_timer_sync(&msc->battery_timer);
