@@ -134,8 +134,10 @@ static void __dwc3_set_mode(struct work_struct *work)
 	if (!dwc->desired_dr_role)
 		goto out;
 
-	if (dwc->desired_dr_role == dwc->current_dr_role)
+	if (dwc->desired_dr_role == dwc->current_dr_role &&
+	    dwc->desired_dr_role != DWC3_GCTL_PRTCAP_DEVICE) {
 		goto out;
+	}
 
 	if (dwc->desired_dr_role == DWC3_GCTL_PRTCAP_OTG && dwc->edev)
 		goto out;
