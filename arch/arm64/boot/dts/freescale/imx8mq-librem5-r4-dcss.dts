@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 Purism SPC
+ */
+
+/dts-v1/;
+
+#include "imx8mq-librem5-r4.dts"
+/delete-node/ &hdmi_in;
+/delete-node/ &dcss_dp_out;
+#include "imx8mq-librem5-dcss.dtsi"
