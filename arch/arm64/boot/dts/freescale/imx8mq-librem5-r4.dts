@@ -10,17 +10,16 @@
 	compatible = "purism,librem5r4", "purism,librem5", "fsl,imx8mq";
 };
 
-&bat {
-	maxim,battery-capacity = <4200000>; /* uAh */
-	maxim,rsns-microohm = <1667>;
-};
-
 &led_backlight {
 	led-max-microamp = <25000>;
 };
 
 &lcd_panel {
 	compatible = "ys,ys57pss36bh5gq";
+};
+
+&max17055 {
+	maxim,rsns-microohm = <1667>;
 };
 
 &proximity {

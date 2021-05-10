@@ -19,7 +19,7 @@
 };
 
 &bat {
-	maxim,battery-capacity = <2000000>; /* uAh */
+	charge-full-design-microamp-hours = <2000000>;
 };
 
 &bq25895 {
