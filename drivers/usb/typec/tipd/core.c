@@ -728,7 +728,14 @@ static irqreturn_t tps6598x_interrupt(int irq, void *data)
 	if (!tps6598x_read_status(tps, &status))
 		goto err_clear_ints;
 
-	if ((event1 | event2) & TPS_REG_INT_POWER_STATUS_UPDATE) {
+	/*
+	 * In practice it seems like pwr_status can change also if the
+	 * TPS_REG_INT_PP_SWITCH_CHANGED bit is set, so we interpret
+	 * either of the TPS_REG_INT_POWER_STATUS_UPDATE or
+	 * TPS_REG_INT_PP_SWITCH_CHANGED bits being set as a possible
+	 * power status change.
+	 */
+	if ((event1 | event2) & (TPS_REG_INT_POWER_STATUS_UPDATE | TPS_REG_INT_PP_SWITCH_CHANGED)) {
 		if (!tps6598x_read_power_status(tps))
 			goto err_clear_ints;
 
@@ -1029,7 +1036,8 @@ static int tps6598x_probe(struct i2c_client *client)
 			TPS_REG_INT_PLUG_EVENT |
 			TPS_REG_INT_NEW_CONTRACT_AS_CONSUMER |
 			TPS_REG_INT_HARD_RESET |
-			TPS_REG_INT_STATUS_UPDATE;
+			TPS_REG_INT_STATUS_UPDATE |
+			TPS_REG_INT_PP_SWITCH_CHANGED;
 	}
 
 	/* Make sure the controller has application firmware running */
