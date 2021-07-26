@@ -502,6 +502,18 @@
 	};
 };
 
+&gpio4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_bt_wake>;
+
+	bt-wake-hog {
+		gpio-hog;
+		gpios = <20 GPIO_ACTIVE_HIGH>;
+		input;
+		lane-mapping = "bt-wake";
+	};
+};
+
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>;
@@ -545,6 +557,13 @@
 		fsl,pins = <
 			/* CSI1_NRST */
 			MX8MQ_IOMUXC_ENET_RXC_GPIO1_IO25	0x83
+		>;
+	};
+
+	pinctrl_bt_wake: btwakegrp {
+		fsl,pins = <
+			/* BT_WAKE */
+			MX8MQ_IOMUXC_SAI1_MCLK_GPIO4_IO20	0x83
 		>;
 	};
 
@@ -1589,6 +1608,15 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai2>;
 	assigned-clocks = <&clk IMX8MQ_CLK_SAI2>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	status = "okay";
+};
+
+&sai3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai3>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI3>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
 	status = "okay";
