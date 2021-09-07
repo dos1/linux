@@ -1444,7 +1444,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	if (ret < 0)
 		goto err_power;
 
-	ret = v4l2_async_register_subdev(&state->sd);
+	ret = v4l2_async_register_subdev_sensor(&state->sd);
 	if (ret < 0)
 		goto err_ctrl;
 
