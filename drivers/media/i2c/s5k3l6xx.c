@@ -1058,6 +1058,8 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 	const struct v4l2_ctrl_ops *ops = &s5k3l6xx_ctrl_ops;
 	struct s5k3l6xx_ctrls *ctrls = &state->ctrls;
 	struct v4l2_ctrl_handler *hdl = &ctrls->handler;
+	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
+	struct v4l2_fwnode_device_properties props;
 	int ret;
 
 	ret = v4l2_ctrl_handler_init(hdl, 16);
@@ -1117,6 +1119,14 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 		v4l2_ctrl_handler_free(hdl);
 		return ret;
 	}
+
+	ret = v4l2_fwnode_device_parse(&c->dev, &props);
+	if (ret)
+		return ret;
+
+	ret = v4l2_ctrl_new_fwnode_properties(hdl, ops, &props);
+	if (ret)
+		return ret;
 
 	state->sd.ctrl_handler = hdl;
 	return 0;
