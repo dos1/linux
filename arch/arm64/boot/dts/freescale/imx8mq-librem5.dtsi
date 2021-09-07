@@ -1358,8 +1358,7 @@
 	pinctrl-0 = <&pinctrl_i2c4>;
 	status = "okay";
 
-	/* Dongwoon DW9714A - Voice Coil Motor for 13MP Camera */
-	vcm@c {
+	voice_coil_motor: vcm@c {
 		compatible = "dongwoon,dw9714";
 		reg = <0x0c>;
 		vcc-supply = <&reg_csi_1v8>;
@@ -1381,6 +1380,7 @@
 		vddd-supply = <&reg_vcam_1v2>;
 		/* I/O power supply 1,8V */
 		vddio-supply = <&reg_csi_1v8>;
+		lens-focus = <&voice_coil_motor>;
 		status = "okay";
 		rotation = <270>;
 		orientation = <1>;

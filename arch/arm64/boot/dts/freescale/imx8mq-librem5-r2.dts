@@ -43,6 +43,7 @@
 		vddd-supply = <&reg_vcam_1v2>;
 		/* I/O power supply 1,8V */
 		vddio-supply = <&reg_csi_1v8>;
+		lens-focus = <&voice_coil_motor>;
 		status = "okay";
 		rotation = <270>;
 		orientation = <1>;
