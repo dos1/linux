@@ -11,6 +11,8 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 
+#include <media/v4l2-flash-led-class.h>
+
 #define LM3560_NAME "lm3560-led"
 
 #define LM3560_ENABLE_REG		0x10
@@ -75,6 +77,7 @@ struct lm3560_data {
 	struct led_classdev_flash fled_cdev;
 	struct i2c_client *client;
 	struct regmap *regmap;
+	struct v4l2_flash *v4l2_flash;
 
 	struct gpio_desc *enable_gpio;
 	struct regulator *regulator;
@@ -421,10 +424,36 @@ out_err:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+static void lm3560_init_v4l2_flash_config(struct lm3560_data *priv,
+					  struct v4l2_flash_config *v4l2_sd_cfg)
+{
+	struct led_classdev *led_cdev = &priv->fled_cdev.led_cdev;
+	struct led_flash_setting *s;
+
+	strscpy(v4l2_sd_cfg->dev_name, dev_name(led_cdev->dev),
+		sizeof(v4l2_sd_cfg->dev_name));
+
+	/* Init flash intensity setting */
+	s = &v4l2_sd_cfg->intensity;
+	s->min = LM3560_FLASH_BRIGHT_MIN_uA;
+	s->max = priv->flash_current_max;
+	s->step = LM3560_FLASH_BRIGHT_STEP_uA;
+	s->val = LM3560_FLASH_BRIGHT_DEFAULT;
+}
+
+#else
+static void lm3560_init_v4l2_flash_config(struct lm3560_data *priv,
+					  struct v4l2_flash_config *v4l2_sd_cfg)
+{
+}
+#endif
+
 static int lm3560_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct lm3560_data *priv;
 	struct fwnode_handle *fwnode;
+	struct v4l2_flash_config v4l2_sd_cfg = {};
 	int ret;
 
 	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
@@ -478,6 +507,16 @@ static int lm3560_probe(struct i2c_client *client, const struct i2c_device_id *i
 	if (ret < 0)
 		goto err;
 
+	lm3560_init_v4l2_flash_config(priv, &v4l2_sd_cfg);
+
+	priv->v4l2_flash = v4l2_flash_init(&client->dev, fwnode,
+					   &priv->fled_cdev,
+					   NULL, &v4l2_sd_cfg);
+	if (IS_ERR(priv->v4l2_flash)) {
+		ret = PTR_ERR(priv->v4l2_flash);
+		goto err;
+	}
+
 	return 0;
 err:
 	fwnode_handle_put(fwnode);
@@ -493,6 +532,8 @@ static int lm3560_remove(struct i2c_client *client)
 	regmap_update_bits(priv->regmap, LM3560_ENABLE_REG,
 			   LM3560_ENABLE_MASK,
 			   LM3560_ENABLE_SHUTDOWN);
+
+	v4l2_flash_release(priv->v4l2_flash);
 
 	if (priv->enable_gpio)
 		gpiod_direction_output(priv->enable_gpio, 0);
