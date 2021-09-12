@@ -1226,6 +1226,8 @@ static int bq25890_probe(struct i2c_client *client,
 		goto err_unregister_usb_notifier;
 	}
 
+	bq25890_external_power_changed(bq->charger);
+
 	return 0;
 
 err_unregister_usb_notifier:
