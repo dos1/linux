@@ -1451,6 +1451,7 @@
 		/* I/O power supply 1,8V */
 		vddio-supply = <&reg_csi_1v8>;
 		lens-focus = <&voice_coil_motor>;
+		flash-leds = <&torch>;
 		status = "okay";
 		rotation = <270>;
 		orientation = <1>;
