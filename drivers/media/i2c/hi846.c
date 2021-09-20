@@ -1338,6 +1338,8 @@ static const char * const hi846_supply_names[] = {
 
 #define HI846_NUM_SUPPLIES ARRAY_SIZE(hi846_supply_names)
 
+#define HI846_OTP_SEGMENTS	4
+
 struct hi846 {
 	struct gpio_desc *rst_gpio;
 	struct gpio_desc *shutdown_gpio;
@@ -1358,6 +1360,7 @@ struct hi846 {
 	struct mutex mutex; /* protect cur_mode, streaming and chip access */
 	const struct hi846_mode *cur_mode;
 	bool streaming;
+	int otp_seg_index[HI846_OTP_SEGMENTS]; /* burned group for OTP */
 
 	u16 debug_address;
 	struct hi846_reg_list *debug_regs;
@@ -1493,18 +1496,6 @@ static int hi846_write_reg_list(struct hi846 *hi846,
 	return 0;
 }
 
-static int hi846_update_digital_gain(struct hi846 *hi846, u16 d_gain)
-{
-	int ret = 0;
-
-	hi846_write_reg_16(hi846, HI846_REG_MWB_GR_GAIN_H, d_gain, &ret);
-	hi846_write_reg_16(hi846, HI846_REG_MWB_GB_GAIN_H, d_gain, &ret);
-	hi846_write_reg_16(hi846, HI846_REG_MWB_R_GAIN_H, d_gain, &ret);
-	hi846_write_reg_16(hi846, HI846_REG_MWB_B_GAIN_H, d_gain, &ret);
-
-	return ret;
-}
-
 static int hi846_test_pattern(struct hi846 *hi846, u32 pattern)
 {
 	int ret;
@@ -1522,6 +1513,277 @@ static int hi846_test_pattern(struct hi846 *hi846, u32 pattern)
 	}
 
 	return hi846_write_reg(hi846, HI846_REG_TEST_PATTERN, pattern);
+}
+
+static const u16 hi846_otp_flags_addr[HI846_OTP_SEGMENTS] =
+	{ 0x0201, 0x0235, 0x0c5f, 0x0cba };
+static const u8 hi846_otp_flags_data[3] = { 0x01, 0x13, 0x37 };
+
+struct hi846_otp {
+	u16	module_id[3];
+	u16	lens_id[3];
+	u16	year[3];
+	u16	month[3];
+	u16	day[3];
+	u16	sensor_id[3];
+	u16	vcm_id[3];
+	u16	driver_ic_id[3];
+	u16	checksum_1[3];
+
+	u16	r_g_h[3];
+	u16	r_g_l[3];
+	u16	b_g_h[3];
+	u16	b_g_l[3];
+	u16	gb_gr_h[3];
+	u16	gb_gr_l[3];
+	u16	r_g_golden_h[3];
+	u16	r_g_golden_l[3];
+	u16	b_g_golden_h[3];
+	u16	b_g_golden_l[3];
+	u16	gb_gr_golden_h[3];
+	u16	gb_gr_golden_l[3];
+	u16	checksum_2[3];
+};
+
+static const struct hi846_otp hi846_otp_data = {
+	/* Seg1, Index 0 (Base Information) */
+	.module_id	= { 0x0202, 0x0213, 0x0224 },
+	.lens_id	= { 0x0203, 0x0214, 0x0225 },
+	.year		= { 0x0204, 0x0215, 0x0226 },
+	.month		= { 0x0205, 0x0216, 0x0227 },
+	.day		= { 0x0206, 0x0217, 0x0228 },
+	.sensor_id	= { 0x0207, 0x0218, 0x0229 },
+	.vcm_id		= { 0x0208, 0x0219, 0x022a },
+	.driver_ic_id	= { 0x0209, 0x021a, 0x022b },
+	.checksum_1	= { 0x0212, 0x0223, 0x0234 },
+	/* Seg2, Index 1 (WB Calibration) */
+	.r_g_h		= { 0x0236, 0x0246, 0x0256 },
+	.r_g_l		= { 0x0237, 0x0247, 0x0257 },
+	.b_g_h		= { 0x0238, 0x0248, 0x0258 },
+	.b_g_l		= { 0x0239, 0x0249, 0x0259 },
+	.gb_gr_h	= { 0x023a, 0x024a, 0x025a },
+	.gb_gr_l	= { 0x023b, 0x024b, 0x025b },
+	.r_g_golden_h	= { 0x023c, 0x024c, 0x025c },
+	.r_g_golden_l	= { 0x023d, 0x024d, 0x025d },
+	.b_g_golden_h	= { 0x023e, 0x024e, 0x025e },
+	.b_g_golden_l	= { 0x023f, 0x024f, 0x025f },
+	.gb_gr_golden_h	= { 0x0240, 0x0250, 0x0260 },
+	.gb_gr_golden_l	= { 0x0241, 0x0251, 0x0261 },
+	.checksum_2	= { 0x0245, 0x0255, 0x0265 },
+};
+
+static int hi846_otp_read(struct hi846 *hi846, u16 startaddr,
+			  u8 *data, u16 len, bool single_read_mode)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(&hi846->sd);
+	int ret;
+	u16 i = 0;
+
+	if (!data || !len)
+		return -EINVAL;
+
+	ret = hi846_write_reg(hi846, HI846_REG_FAST_STANDBY_MODE, 0x01);
+	ret &= hi846_write_reg(hi846, HI846_REG_MODE_SELECT, 0x00);
+	msleep(20);
+	ret &= hi846_write_reg(hi846, 0x0f02, 0x00); /* pll disable */
+	ret &= hi846_write_reg(hi846, 0x071a, 0x01); /* CP TRIM_H */
+	ret &= hi846_write_reg(hi846, 0x071b, 0x09); /* IPGM TRIM_H */
+	ret &= hi846_write_reg(hi846, 0x0d04, 0x00); /* Fsync (OTP busy) Output Enable */
+	ret &= hi846_write_reg(hi846, 0x0d00, 0x07); /* Fsync (OTP busy) Output Drivaility */
+	ret &= hi846_write_reg(hi846, 0x003e, 0x10); /* OTP r/w mode */
+	ret &= hi846_write_reg(hi846, HI846_REG_MODE_SELECT, 0x01);
+	if (ret)
+		return ret;
+	msleep(2);
+
+	if (single_read_mode) {
+		for (i = 0; i < len; i++) {
+			ret = hi846_write_reg(hi846, 0x070a,
+						((startaddr + i) >> 8) & 0xff);
+			ret &= hi846_write_reg(hi846, 0x070b,
+						(startaddr + i) & 0xff);
+			ret &= hi846_write_reg(hi846, 0x0702,
+						0x01); /* read mode */
+			ret &= hi846_read_reg(hi846, 0x0708, &data[i]);
+			if (ret)
+				return ret;
+			dev_dbg(&c->dev, "OTP read at 0x%x: 0x%x\n",
+				startaddr + i, data[i]);
+		}
+	} else {
+		ret = hi846_write_reg(hi846, 0x070a, (startaddr >> 8) & 0xff);
+		ret &= hi846_write_reg(hi846, 0x070b, startaddr & 0xff);
+		ret &= hi846_write_reg(hi846, 0x0702, 0x01); /* read mode */
+		if (ret)
+			return ret;
+
+		for (i = 0; i < len; i++) {
+			ret = hi846_read_reg(hi846, 0x0708, &data[i]);
+			if (ret)
+				return ret;
+		}
+	}
+
+
+	ret = hi846_write_reg(hi846, HI846_REG_MODE_SELECT, 0x00);
+	msleep(20);
+	ret &= hi846_write_reg(hi846, 0x003e, 0x00); /* display mode */
+	ret &= hi846_write_reg(hi846, HI846_REG_MODE_SELECT, 0x01);
+	msleep(2);
+	if (ret)
+		dev_err(&c->dev, "OTP read failed\n");
+
+	return ret;
+}
+
+/* save which (latest burned) group to read each segment from */
+static int hi846_otp_setup(struct hi846 *hi846)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(&hi846->sd);
+	u8 flag;
+	int ret = 0;
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(hi846->otp_seg_index); i++)
+		hi846->otp_seg_index[i] = -1;
+
+	for (i = 0; i < HI846_OTP_SEGMENTS; i++) {
+		if (hi846->otp_seg_index[i] >= 0) {
+			dev_warn(&c->dev, "index for segment %d already read\n", i);
+			continue;
+		}
+
+		ret = hi846_otp_read(hi846, hi846_otp_flags_addr[i], &flag, 1, false);
+		if (ret)
+			return ret;
+
+		/* 3 possible groups to burn */
+		for (j = 0; j < 3; j++) {
+			if (flag == hi846_otp_flags_data[j]) {
+				dev_dbg(&c->dev,
+					"valid flag: %u read for segment %u\n",
+					flag, i);
+
+				hi846->otp_seg_index[i] = j;
+			}
+		}
+
+		if (hi846->otp_seg_index[i] < 0) {
+			dev_dbg(&c->dev,
+				"OTP seg %u is not available\n", i);
+
+			/* we should have the first 2 segments */
+			if (i == 0 || i == 1) {
+				dev_err(&c->dev,
+					"failed to get index for seg %u\n", i);
+				return -EINVAL;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static int hi846_otp_read_info(struct hi846 *hi846)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(&hi846->sd);
+	int ret;
+	u8 otp_val[5];
+
+	ret = hi846_otp_read(hi846,
+			     hi846_otp_data.lens_id[hi846->otp_seg_index[0]],
+			     &otp_val[0], 1, false);
+	ret &= hi846_otp_read(hi846,
+			     hi846_otp_data.sensor_id[hi846->otp_seg_index[0]],
+			     &otp_val[1], 1, false);
+	ret &= hi846_otp_read(hi846,
+			     hi846_otp_data.year[hi846->otp_seg_index[0]],
+			     &otp_val[2], 1, false);
+	ret &= hi846_otp_read(hi846,
+			     hi846_otp_data.month[hi846->otp_seg_index[0]],
+			     &otp_val[3], 1, false);
+	ret &= hi846_otp_read(hi846,
+			     hi846_otp_data.day[hi846->otp_seg_index[0]],
+			     &otp_val[4], 1, false);
+	if (ret) {
+		dev_err(&c->dev, "OTP read error\n");
+		return ret;
+	}
+
+	dev_info(&c->dev,
+		 "Lens ID 0x%02X; Sensor ID 0x%02X; produced 20%d/%d/%d\n",
+		 otp_val[0], otp_val[1], otp_val[2], otp_val[3], otp_val[4]);
+
+	return 0;
+}
+
+static int hi846_otp_apply_awb(struct hi846 *hi846)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(&hi846->sd);
+	u16 R_unit, B_unit, Gr_Gb_unit = 0;
+	u16 R_golden, B_golden, Gr_Gb_golden = 0;
+	u16 R_gain, B_gain, G_gain = 0;
+	u8 data[32] = {0};
+	int ret;
+	int i;
+	u32 sum = 0;
+
+	ret = hi846_otp_read(hi846,
+			     hi846_otp_data.r_g_h[hi846->otp_seg_index[1]],
+			     data, 16, false);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < 12; i++)
+		sum += data[i];
+
+	if (((sum % 255) + 1) == data[15]) {
+		dev_dbg(&c->dev, "OTP read ok\n");
+	} else {
+		dev_err(&c->dev, "OTP read failed\n");
+		return -EINVAL;
+	}
+
+	R_unit = (data[0] << 8) | data[1];
+	B_unit = (data[2] << 8) | data[3];
+	Gr_Gb_unit = (data[4] << 8) | data[5];
+
+	dev_err(&c->dev, "OTP awb gains: R:%u G:%u B:%u\n",
+			 R_unit, Gr_Gb_unit, B_unit);
+
+	R_golden = (data[6] << 8) | data[7];
+	B_golden = (data[8] << 8) | data[9];
+	Gr_Gb_golden = (data[10] << 8) | data[11];
+
+	dev_err(&c->dev, "OTP awb golden gains: R:%u G:%u B:%u\n",
+			 R_golden, Gr_Gb_golden, B_golden);
+
+	R_gain = 0x200 * R_golden / R_unit;
+	B_gain = 0x200 * B_golden / B_unit;
+	G_gain = 0x200;
+
+	if (R_gain < B_gain) {
+		if (R_gain < 0x200) {
+			B_gain = 0x200 * B_gain / R_gain;
+			G_gain = 0x200 * G_gain / R_gain;
+			R_gain = 0x200;
+		}
+	} else {
+		if (B_gain < 0x200) {
+			R_gain = 0x200 * R_gain / B_gain;
+			G_gain = 0x200 * G_gain / B_gain;
+			B_gain = 0x200;
+		}
+	}
+	dev_err(&c->dev, "WB digital gain: R:%u G:%u B:%u\n",
+		R_gain, G_gain, B_gain);
+
+	hi846_write_reg_16(hi846, HI846_REG_MWB_R_GAIN_H, R_gain, &ret);
+	hi846_write_reg_16(hi846, HI846_REG_MWB_GR_GAIN_H, G_gain, &ret);
+	hi846_write_reg_16(hi846, HI846_REG_MWB_GB_GAIN_H, G_gain, &ret);
+	hi846_write_reg_16(hi846, HI846_REG_MWB_B_GAIN_H, B_gain, &ret);
+
+	return 0;
 }
 
 static int hi846_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -1550,10 +1812,6 @@ static int hi846_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_ANALOGUE_GAIN:
 		ret = hi846_write_reg(hi846, HI846_REG_ANALOG_GAIN, ctrl->val);
-		break;
-
-	case V4L2_CID_DIGITAL_GAIN:
-		ret = hi846_update_digital_gain(hi846, ctrl->val);
 		break;
 
 	case V4L2_CID_EXPOSURE:
@@ -1647,9 +1905,6 @@ static int hi846_init_controls(struct hi846 *hi846)
 	v4l2_ctrl_new_std(ctrl_hdlr, &hi846_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
 			  HI846_ANAL_GAIN_MIN, HI846_ANAL_GAIN_MAX,
 			  HI846_ANAL_GAIN_STEP, HI846_ANAL_GAIN_MIN);
-	v4l2_ctrl_new_std(ctrl_hdlr, &hi846_ctrl_ops, V4L2_CID_DIGITAL_GAIN,
-			  HI846_DGTL_GAIN_MIN, HI846_DGTL_GAIN_MAX,
-			  HI846_DGTL_GAIN_STEP, HI846_DGTL_GAIN_DEFAULT);
 	exposure_max = hi846->cur_mode->frame_len - HI846_EXPOSURE_MAX_MARGIN;
 	hi846->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &hi846_ctrl_ops,
 					    V4L2_CID_EXPOSURE,
@@ -2159,7 +2414,7 @@ static int hi846_identify_module(struct hi846 *hi846)
 		return -ENXIO;
 	}
 
-	dev_info(&client->dev, "chip id %02X %02X using %d mipi lanes\n",
+	dev_info(&client->dev, "Chip ID 0x%02X 0x%02X using %d MIPI lanes\n",
 		 hi, lo, hi846->nr_lanes);
 
 	return 0;
@@ -2381,6 +2636,44 @@ static int hi846_probe(struct i2c_client *client)
 	debugfs_create_x16("address", 0600, d, &hi846->debug_address);
 	debugfs_create_file("add_value", 0200, d, (void *)hi846, &debug_add_ops);
 	debugfs_create_file("clear", 0200, d, (void *)hi846, &debug_clear_ops);
+
+	/* power up for OTP access */
+	ret = pm_runtime_get_sync(&client->dev);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: pm_runtime_get failed: %d\n",
+			__func__, ret);
+		pm_runtime_put_noidle(&client->dev);
+		goto err_media_entity_cleanup;
+	}
+
+	if (hi846->nr_lanes == 2)
+		ret = hi846_write_reg_list(hi846, &hi846_init_regs_list_2lane);
+	else
+		ret = hi846_write_reg_list(hi846, &hi846_init_regs_list_4lane);
+	if (ret) {
+		dev_err(&client->dev, "failed to set plls: %d\n", ret);
+	}
+
+	/*
+	 * OTP is vendor specific. What is burnt where can differ.
+	 * This is a module by
+	 * Shenzhen Yashi Changhua Intelligent Technology Co., Ltd.
+	 */
+	ret = hi846_otp_setup(hi846);
+	if (ret) {
+		dev_err(&client->dev, "OTP setup error\n");
+		goto err_otp;
+	}
+
+	hi846_otp_read_info(hi846);
+
+	ret = hi846_otp_apply_awb(hi846);
+	if (ret)
+		dev_err(&client->dev, "No white balance correction applied!\n");
+
+err_otp:
+	pm_runtime_mark_last_busy(&client->dev);
+	pm_runtime_put_autosuspend(&client->dev);
 
 	return 0;
 
