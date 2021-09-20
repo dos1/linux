@@ -1493,18 +1493,6 @@ static int hi846_write_reg_list(struct hi846 *hi846,
 	return 0;
 }
 
-static int hi846_update_digital_gain(struct hi846 *hi846, u16 d_gain)
-{
-	int ret = 0;
-
-	hi846_write_reg_16(hi846, HI846_REG_MWB_GR_GAIN_H, d_gain, &ret);
-	hi846_write_reg_16(hi846, HI846_REG_MWB_GB_GAIN_H, d_gain, &ret);
-	hi846_write_reg_16(hi846, HI846_REG_MWB_R_GAIN_H, d_gain, &ret);
-	hi846_write_reg_16(hi846, HI846_REG_MWB_B_GAIN_H, d_gain, &ret);
-
-	return ret;
-}
-
 static int hi846_test_pattern(struct hi846 *hi846, u32 pattern)
 {
 	int ret;
@@ -1550,10 +1538,6 @@ static int hi846_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_ANALOGUE_GAIN:
 		ret = hi846_write_reg(hi846, HI846_REG_ANALOG_GAIN, ctrl->val);
-		break;
-
-	case V4L2_CID_DIGITAL_GAIN:
-		ret = hi846_update_digital_gain(hi846, ctrl->val);
 		break;
 
 	case V4L2_CID_EXPOSURE:
@@ -1647,9 +1631,6 @@ static int hi846_init_controls(struct hi846 *hi846)
 	v4l2_ctrl_new_std(ctrl_hdlr, &hi846_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
 			  HI846_ANAL_GAIN_MIN, HI846_ANAL_GAIN_MAX,
 			  HI846_ANAL_GAIN_STEP, HI846_ANAL_GAIN_MIN);
-	v4l2_ctrl_new_std(ctrl_hdlr, &hi846_ctrl_ops, V4L2_CID_DIGITAL_GAIN,
-			  HI846_DGTL_GAIN_MIN, HI846_DGTL_GAIN_MAX,
-			  HI846_DGTL_GAIN_STEP, HI846_DGTL_GAIN_DEFAULT);
 	exposure_max = hi846->cur_mode->frame_len - HI846_EXPOSURE_MAX_MARGIN;
 	hi846->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &hi846_ctrl_ops,
 					    V4L2_CID_EXPOSURE,
