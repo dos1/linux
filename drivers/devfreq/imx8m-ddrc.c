@@ -76,6 +76,9 @@ struct imx8m_ddrc {
 	struct clk *sys2_pll_333m;
 	struct clk *osc_25m;
 
+	unsigned long suspend_rate;
+	unsigned long resume_rate;
+
 	unsigned long ahb_initial_freq;
 
 	int freq_count;
@@ -290,6 +293,22 @@ static int imx8m_ddrc_target(struct device *dev, unsigned long *freq, u32 flags)
 	return ret;
 }
 
+static int imx8m_ddrc_suspend(struct device *dev)
+{
+	struct imx8m_ddrc *priv = dev_get_drvdata(dev);
+
+	priv->resume_rate = clk_get_rate(priv->dram_core);
+
+	return imx8m_ddrc_target(dev, &priv->suspend_rate, 0);
+}
+
+static int imx8m_ddrc_resume(struct device *dev)
+{
+	struct imx8m_ddrc *priv = dev_get_drvdata(dev);
+
+	return imx8m_ddrc_target(dev, &priv->resume_rate, 0);
+}
+
 static int imx8m_ddrc_get_cur_freq(struct device *dev, unsigned long *freq)
 {
 	struct imx8m_ddrc *priv = dev_get_drvdata(dev);
@@ -340,6 +359,8 @@ static int imx8m_ddrc_init_freq_info(struct device *dev)
 		if (freq->dram_core_parent_index == 2 &&
 				freq->dram_alt_parent_index == 0)
 			return -ENODEV;
+		if (index == 0)
+			priv->suspend_rate = freq->rate * 250000;
 	}
 
 	return 0;
@@ -492,10 +513,15 @@ static const struct of_device_id imx8m_ddrc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, imx8m_ddrc_of_match);
 
+static const struct dev_pm_ops imx8m_ddrc_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(imx8m_ddrc_suspend, imx8m_ddrc_resume)
+};
+
 static struct platform_driver imx8m_ddrc_platdrv = {
 	.probe		= imx8m_ddrc_probe,
 	.driver = {
 		.name	= "imx8m-ddrc-devfreq",
+		.pm = &imx8m_ddrc_pm_ops,
 		.of_match_table = imx8m_ddrc_of_match,
 	},
 };
