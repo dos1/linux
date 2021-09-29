@@ -748,32 +748,63 @@ static int s5k3l6xx_enum_mbus_code(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_state *sd_state,
 				   struct v4l2_subdev_mbus_code_enum *code)
 {
-	if (code->index >= ARRAY_SIZE(s5k3l6xx_frames))
-		return -EINVAL;
-	code->code = s5k3l6xx_frames[code->index].code;
-	return 0;
+	unsigned repeats[ARRAY_SIZE(s5k3l6xx_frames)] = {0};
+	unsigned i, j;
+	unsigned matching = 0;
+
+	/* Find unique codes within the frame configs array.
+	 * The algorithm is O(n^2), but there's only a handful of configs,
+	 * meaning that it's unlikely to take a long time.
+	 * The repeats array's size is determined at compile time.
+	 */
+	for (i = 0; i < ARRAY_SIZE(s5k3l6xx_frames); i++) {
+		for (j = 0; j < i; j++) {
+			if (s5k3l6xx_frames[j].code == s5k3l6xx_frames[i].code) {
+				repeats[i]++;
+			}
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(s5k3l6xx_frames); i++) {
+		if (repeats[i] != 0)
+			continue;
+
+		if (matching == code->index) {
+			code->code = s5k3l6xx_frames[i].code;
+			return 0;
+		}
+		matching++;
+	}
+
+	return -EINVAL;
 }
 
 static int s5k3l6xx_enum_frame_size(struct v4l2_subdev *sd,
 				    struct v4l2_subdev_state *sd_state,
 				    struct v4l2_subdev_frame_size_enum *fse)
 {
-	int i;
+	unsigned i;
+	unsigned matching = 0;
 
-	if (fse->index > 0)
-		return -EINVAL;
+	for (i = 0; i < ARRAY_SIZE(s5k3l6xx_frames); i++) {
+		if (fse->code != s5k3l6xx_frames[i].code)
+			continue;
 
-	i = ARRAY_SIZE(s5k3l6xx_frames);
-	while (--i)
-		if (fse->code == s5k3l6xx_frames[i].code)
-			break;
-	fse->code = s5k3l6xx_frames[i].code;
-	fse->min_width = s5k3l6xx_frames[i].width;
-	fse->max_width = s5k3l6xx_frames[i].width;
-	fse->max_height = s5k3l6xx_frames[i].height;
-	fse->min_height = s5k3l6xx_frames[i].height;
+		if (fse->index == matching) {
+			fse->code = s5k3l6xx_frames[i].code;
+			fse->min_width = s5k3l6xx_frames[i].width;
+			fse->max_width = s5k3l6xx_frames[i].width;
+			fse->max_height = s5k3l6xx_frames[i].height;
+			fse->min_height = s5k3l6xx_frames[i].height;
 
-	return 0;
+			return 0;
+		}
+		matching++;
+	}
+
+	dev_err(sd->dev, "fsize i %d m %d", i, matching);
+
+	return -EINVAL;
 }
 
 static void s5k3l6xx_get_current_cis_format(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
