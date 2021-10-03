@@ -265,6 +265,11 @@ struct s5k3l6xx_ctrls {
 	};
 	struct { /* Link properties */
 		struct v4l2_ctrl *link_freq;
+		struct v4l2_ctrl *pixel_rate;
+	};
+	struct { /* Frame properties */
+		struct v4l2_ctrl *hblank;
+		struct v4l2_ctrl *vblank;
 	};
 };
 
@@ -1020,9 +1025,25 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 		return ret;
 	}
 
+	// FIXME: dummy values. They should be tied to frame properties.
+	// Some derived from frame, some influencing frame.
+
 	// Exposure time (min: 2; max: frame length lines - 2; default: reset value)
 	ctrls->exposure = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_EXPOSURE,
 					    2, 3118, 1, 0x03de);
+
+	ctrls->pixel_rate = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_PIXEL_RATE,
+					      0, 1, 1, 1);
+	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
+					  1, 1, 1, 1);
+	ctrls->hblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HBLANK,
+					  1, 1, 1, 1);
+	if (ctrls->pixel_rate)
+		ctrls->pixel_rate->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+	if (ctrls->vblank)
+		ctrls->vblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+	if (ctrls->hblank)
+		ctrls->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	// Total gain: 32 <=> 1x
 	ctrls->analog_gain = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_ANALOGUE_GAIN,
