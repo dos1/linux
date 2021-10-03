@@ -894,12 +894,51 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd,
 
 enum selection_rect { R_CIS, R_CROP_SINK, R_COMPOSE, R_CROP_SOURCE, R_INVALID };
 
-static const struct v4l2_subdev_pad_ops s5k3l6xx_cis_pad_ops = {
-	.enum_mbus_code		= s5k3l6xx_enum_mbus_code,
-	.enum_frame_size	= s5k3l6xx_enum_frame_size,
-	.get_fmt		= s5k3l6xx_get_fmt,
-	.set_fmt		= s5k3l6xx_set_fmt,
-};
+
+static struct v4l2_rect get_crop(const struct s5k3l6xx_frame *fmt)
+{
+	struct v4l2_rect ret = {
+		.top = 0,
+		.left = 0,
+		.width = fmt->width,
+		.height = fmt->height,
+	};
+	return ret;
+}
+
+static int s5k3l6xx_get_selection(struct v4l2_subdev *sd,
+			       struct v4l2_subdev_state *sd_state,
+			       struct v4l2_subdev_selection *sel)
+{
+	struct s5k3l6xx *state = to_s5k3l6xx(sd);
+
+	// FIXME: does crop rectangle affect vblank/hblank?
+	// If no, then it can be independent of mode (frame format).
+	switch (sel->target) {
+	case V4L2_SEL_TGT_CROP:
+	case V4L2_SEL_TGT_CROP_DEFAULT:
+		mutex_lock(&state->lock);
+		switch (sel->which) {
+		case V4L2_SUBDEV_FORMAT_TRY:
+			v4l2_subdev_get_try_crop(sd, sd_state, sel->pad);
+			break;
+		case V4L2_SUBDEV_FORMAT_ACTIVE:
+			sel->r = get_crop(state->frame_fmt);
+			break;
+		}
+		mutex_unlock(&state->lock);
+		return 0;
+	case V4L2_SEL_TGT_CROP_BOUNDS:
+	case V4L2_SEL_TGT_NATIVE_SIZE:
+		sel->r.top = 0;
+		sel->r.left = 0;
+		sel->r.width = S5K3L6XX_CIS_WIDTH;
+		sel->r.height = S5K3L6XX_CIS_HEIGHT;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
 
 static const struct v4l2_subdev_pad_ops s5k3l6xx_pad_ops = {
 	.init_cfg		= s5k3l6xx_init_cfg,
@@ -910,6 +949,8 @@ static const struct v4l2_subdev_pad_ops s5k3l6xx_pad_ops = {
 	// instead seems to call enum_fmt, which does enum_mbus_code here.
 	.get_fmt		= s5k3l6xx_get_fmt,
 	.set_fmt		= s5k3l6xx_set_fmt,
+	.get_selection		= s5k3l6xx_get_selection,
+	// TODO: add set_selection
 };
 
 static const struct v4l2_subdev_video_ops s5k3l6xx_video_ops = {
@@ -1084,10 +1125,6 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 /*
  * V4L2 subdev internal operations
  */
-static const struct v4l2_subdev_ops s5k5baf_cis_subdev_ops = {
-	.pad	= &s5k3l6xx_cis_pad_ops,
-};
-
 static const struct v4l2_subdev_core_ops s5k3l6xx_core_ops = {
 	.s_power = s5k3l6xx_set_power,
 	.log_status = v4l2_ctrl_subdev_log_status,
