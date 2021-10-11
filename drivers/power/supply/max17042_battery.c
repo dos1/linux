@@ -52,6 +52,13 @@
 
 #define MAX17042_VMAX_TOLERANCE		50 /* 50 mV */
 
+#define MAX17042_CURRENT_LSB		1562500ll /* 1.5625µV/Rsense */
+#define MAX17042_CAPACITY_LSB		5000000ll /* 5.0µVH/Rsense */
+#define MAX17042_TIME_LSB		5625 / 1000 /* s */
+#define MAX17042_VOLTAGE_LSB		625 / 8 /* µV */
+#define MAX17042_RESISTANCE_LSB	1 / 4096 /* Ω */
+#define MAX17042_TEMPERATURE_LSB	1 / 256 /* °C */
+
 #define MAX17042_CRITICAL_SOC		0x03
 
 struct max17042_chip {
@@ -106,8 +113,7 @@ static int max17042_get_temperature(struct max17042_chip *chip, int *temp)
 
 	*temp = sign_extend32(data, 15);
 	/* The value is converted into deci-centigrade scale */
-	/* Units of LSB = 1 / 256 degree Celsius */
-	*temp = *temp * 10 / 256;
+	*temp = *temp * 10 * MAX17042_TEMPERATURE_LSB;
 	return 0;
 }
 
@@ -183,7 +189,7 @@ static int max17042_get_battery_health(struct max17042_chip *chip, int *health)
 		goto health_error;
 
 	/* bits [0-3] unused */
-	vavg = val * 625 / 8;
+	vavg = val * MAX17042_VOLTAGE_LSB;
 	/* Convert to millivolts */
 	vavg /= 1000;
 
@@ -192,7 +198,7 @@ static int max17042_get_battery_health(struct max17042_chip *chip, int *health)
 		goto health_error;
 
 	/* bits [0-3] unused */
-	vbatt = val * 625 / 8;
+	vbatt = val * MAX17042_VOLTAGE_LSB;
 	/* Convert to millivolts */
 	vbatt /= 1000;
 
@@ -299,21 +305,21 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		val->intval = data * 625 / 8;
+		val->intval = data * MAX17042_VOLTAGE_LSB;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		ret = regmap_read(map, MAX17042_AvgVCELL, &data);
 		if (ret < 0)
 			return ret;
 
-		val->intval = data * 625 / 8;
+		val->intval = data * MAX17042_VOLTAGE_LSB;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
 		ret = regmap_read(map, MAX17042_OCVInternal, &data);
 		if (ret < 0)
 			return ret;
 
-		val->intval = data * 625 / 8;
+		val->intval = data * MAX17042_VOLTAGE_LSB;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		if (chip->pdata->enable_current_sense)
@@ -330,7 +336,7 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		data64 = data * 5000000ll;
+		data64 = data * MAX17042_CAPACITY_LSB;
 		do_div(data64, chip->pdata->r_sns);
 		val->intval = data64;
 		break;
@@ -339,7 +345,7 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		data64 = data * 5000000ll;
+		data64 = data * MAX17042_CAPACITY_LSB;
 		do_div(data64, chip->pdata->r_sns);
 		val->intval = data64;
 		break;
@@ -348,7 +354,7 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		data64 = data * 5000000ll;
+		data64 = data * MAX17042_CAPACITY_LSB;
 		do_div(data64, chip->pdata->r_sns);
 		val->intval = data64;
 		break;
@@ -357,7 +363,7 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		data64 = sign_extend64(data, 15) * 5000000ll;
+		data64 = sign_extend64(data, 15) * MAX17042_CAPACITY_LSB;
 		val->intval = div_s64(data64, chip->pdata->r_sns);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
@@ -399,7 +405,7 @@ static int max17042_get_property(struct power_supply *psy,
 			if (ret < 0)
 				return ret;
 
-			data64 = sign_extend64(data, 15) * 1562500ll;
+			data64 = sign_extend64(data, 15) * MAX17042_CURRENT_LSB;
 			val->intval = div_s64(data64, chip->pdata->r_sns);
 		} else {
 			return -EINVAL;
@@ -411,7 +417,7 @@ static int max17042_get_property(struct power_supply *psy,
 			if (ret < 0)
 				return ret;
 
-			data64 = sign_extend64(data, 15) * 1562500ll;
+			data64 = sign_extend64(data, 15) * MAX17042_CURRENT_LSB;
 			val->intval = div_s64(data64, chip->pdata->r_sns);
 		} else {
 			return -EINVAL;
@@ -422,7 +428,7 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		data64 = data * 1562500ll;
+		data64 = data * MAX17042_CURRENT_LSB;
 		val->intval = div_s64(data64, chip->pdata->r_sns);
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
@@ -430,7 +436,7 @@ static int max17042_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 
-		val->intval = data * 5625 / 1000;
+		val->intval = data * MAX17042_TIME_LSB;
 		break;
 	default:
 		return -EINVAL;
@@ -446,25 +452,9 @@ static int max17042_set_property(struct power_supply *psy,
 	struct regmap *map = chip->regmap;
 	int ret = 0;
 	u32 data;
-	u64 data64;
 	int8_t temp;
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		ret = regmap_read(map, MAX17042_DesignCap, &data);
-		if (ret < 0)
-			return ret;
-
-		data64 = (u64)val->intval * chip->pdata->r_sns;
-		do_div(data64, 5000000ll);
-		ret = regmap_write(map, MAX17042_DesignCap, (u32)data64);
-
-		if (chip->chip_type &&
-		   (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055)) {
-			regmap_write_bits(map, MAX17055_ModelCfg, MAX17055_REFRESH_BIT, MAX17055_REFRESH_BIT);
-		}
-
-		break;
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
 		ret = regmap_read(map, MAX17042_TALRT_Th, &data);
 		if (ret < 0)
@@ -506,7 +496,6 @@ static int max17042_property_is_writeable(struct power_supply *psy,
 	int ret;
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MAX:
 		ret = 1;
@@ -818,11 +807,12 @@ static inline void max17042_override_por_values(struct max17042_chip *chip)
 		max17042_override_por(map, MAX17047_V_empty, config->vempty);
 	}
 
-	if (chip->chip_type &&
-	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055)) {
+	if (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055) {
 		max17042_override_por(map, MAX17055_ModelCfg, config->model_cfg);
+		// VChg is 1 by default, so allow it to be set to 0
+		regmap_update_bits(map, MAX17055_ModelCfg,
+				MAX17055_MODELCFG_VCHG_BIT, config->model_cfg);
 	}
-
 }
 
 static int max17042_init_chip(struct max17042_chip *chip)
@@ -831,13 +821,21 @@ static int max17042_init_chip(struct max17042_chip *chip)
 	int ret;
 
 	max17042_override_por_values(chip);
+
+	if (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055) {
+		regmap_write_bits(map, MAX17055_ModelCfg,
+				  MAX17055_MODELCFG_REFRESH_BIT, MAX17055_MODELCFG_REFRESH_BIT);
+	}
+
 	/* After Power up, the MAX17042 requires 500mS in order
 	 * to perform signal debouncing and initial SOC reporting
 	 */
 	msleep(500);
 
-	if (chip->pdata->enable_por_init) {
-		/* Initialize configaration */
+	if ((chip->chip_type == MAXIM_DEVICE_TYPE_MAX17042) ||
+	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17047) ||
+	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17050)) {
+		/* Initialize configuration */
 		max17042_write_config_regs(chip);
 
 		/* write cell characterization data */
@@ -945,7 +943,7 @@ static void max17042_init_worker(struct work_struct *work)
 	int ret;
 
 	/* Initialize registers according to values from the platform data */
-	if (chip->pdata->config_data) {
+	if (chip->pdata->enable_por_init && chip->pdata->config_data) {
 		ret = max17042_init_chip(chip);
 		if (ret)
 			return;
@@ -963,16 +961,11 @@ max17042_get_of_pdata(struct max17042_chip *chip)
 	u32 prop;
 	u64 data64;
 	struct max17042_platform_data *pdata;
+	struct power_supply_battery_info *info;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
-
-	pdata->config_data = devm_kzalloc(dev, sizeof(*pdata->config_data), GFP_KERNEL);
-	if (!pdata->config_data)
-		return NULL;
-
-	pdata->config_data->model_cfg = MAX17055_REFRESH_BIT;
 
 	/*
 	 * Require current sense resistor value to be specified for
@@ -991,19 +984,31 @@ max17042_get_of_pdata(struct max17042_chip *chip)
 		pdata->vmin = INT_MIN;
 	if (of_property_read_s32(np, "maxim,over-volt", &pdata->vmax))
 		pdata->vmax = INT_MAX;
-	if (!of_property_read_bool(np, "maxim,vchg-4V2"))
-		pdata->config_data->model_cfg |= MAX17055_VCHG_BIT;
 
-	if (of_property_read_u32(np, "maxim,battery-capacity", &prop) == 0) {
-		data64 = (u64)prop * pdata->r_sns;
-		do_div(data64, 5000000ll);
-		pdata->config_data->design_cap = (u16)data64;
-	}
+	if (pdata->enable_current_sense &&
+	    power_supply_get_battery_info(chip->battery, &info) == 0) {
+		pdata->config_data = devm_kzalloc(dev, sizeof(*pdata->config_data), GFP_KERNEL);
+		if (!pdata->config_data)
+			return NULL;
 
-	if (of_property_read_u32(np, "maxim,termination-current", &prop) == 0) {
-		data64 = (u64)prop * pdata->r_sns;
-		do_div(data64, 1562500ll);
-		pdata->config_data->ichgt_term = (u16)data64;
+		if (info->charge_full_design_uah != -EINVAL) {
+			data64 = (u64)info->charge_full_design_uah * pdata->r_sns;
+			do_div(data64, MAX17042_CAPACITY_LSB);
+			pdata->config_data->design_cap = (u16)data64;
+			pdata->enable_por_init = true;
+		}
+		if (info->charge_term_current_ua != -EINVAL) {
+			data64 = (u64)info->charge_term_current_ua * pdata->r_sns;
+			do_div(data64, MAX17042_CURRENT_LSB);
+			pdata->config_data->ichgt_term = (u16)data64;
+			pdata->enable_por_init = true;
+		}
+		if (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055) {
+			if (info->voltage_max_design_uv > 4250000) {
+				pdata->config_data->model_cfg = MAX17055_MODELCFG_VCHG_BIT;
+				pdata->enable_por_init = true;
+			}
+		}
 	}
 
 	return pdata;
@@ -1144,15 +1149,22 @@ static int max17042_probe(struct i2c_client *client,
 		return -EINVAL;
 	}
 
+	i2c_set_clientdata(client, chip);
+	psy_cfg.drv_data = chip;
+	psy_cfg.of_node = dev->of_node;
+
+	chip->battery = devm_power_supply_register(&client->dev, max17042_desc,
+						   &psy_cfg);
+	if (IS_ERR(chip->battery)) {
+		return dev_err_probe(&client->dev, PTR_ERR(chip->battery),
+				     "failed: power supply register\n");
+	}
+
 	chip->pdata = max17042_get_pdata(chip);
 	if (!chip->pdata) {
 		dev_err(&client->dev, "no platform data provided\n");
 		return -EINVAL;
 	}
-
-	i2c_set_clientdata(client, chip);
-	psy_cfg.drv_data = chip;
-	psy_cfg.of_node = dev->of_node;
 
 	/* When current is not measured,
 	 * CURRENT_NOW and CURRENT_AVG properties should be invisible. */
@@ -1173,12 +1185,6 @@ static int max17042_probe(struct i2c_client *client,
 		regmap_write(chip->regmap, MAX17042_MiscCFG, 0x0003);
 		regmap_write(chip->regmap, MAX17042_LearnCFG, 0x0007);
 	}
-
-	chip->battery = devm_power_supply_register(&client->dev, max17042_desc,
-						   &psy_cfg);
-	if (IS_ERR(chip->battery))
-		return dev_err_probe(&client->dev, PTR_ERR(chip->battery),
-				     "failed: power supply register\n");
 
 	if (client->irq) {
 		unsigned int flags = IRQF_ONESHOT;

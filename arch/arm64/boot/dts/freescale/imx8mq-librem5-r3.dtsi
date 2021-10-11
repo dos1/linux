@@ -33,10 +33,6 @@
 			"0",  "0", "-1";
 };
 
-&bat {
-	maxim,battery-capacity = <3400000>; /* uAh */
-};
-
 &bq25895 {
 	ti,charge-current = <1500000>; /* uA */
 };

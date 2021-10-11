@@ -11,6 +11,10 @@
 	};
 };
 
+&bat {
+	charge-full-design-microamp-hours = <3400000>;
+};
+
 &buck3_reg {
 	regulator-always-on;
 };

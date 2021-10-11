@@ -18,15 +18,13 @@
 #define MAX17042_DEFAULT_TEMP_MIN	(0)    /* For sys without temp sensor */
 #define MAX17042_DEFAULT_TEMP_MAX	(700)  /* 70 degrees Celcius */
 
-#define MAX17055_VCHG_4V2		0
-#define MAX17055_VCHG_4V3		1
-#define MAX17055_VCHG_BIT		BIT(10)
-#define MAX17055_REFRESH_BIT		BIT(15)
-
 /* Consider RepCap which is less then 10 units below FullCAP full */
 #define MAX17042_FULL_THRESHOLD		10
 
 #define MAX17042_CHARACTERIZATION_DATA_SIZE 48
+
+#define MAX17055_MODELCFG_VCHG_BIT	BIT(10)
+#define MAX17055_MODELCFG_REFRESH_BIT	BIT(15)
 
 enum max17042_register {
 	MAX17042_STATUS		= 0x00,

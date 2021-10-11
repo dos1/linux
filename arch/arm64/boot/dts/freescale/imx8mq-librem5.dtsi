@@ -25,6 +25,14 @@
 		default-brightness-level = <190>;
 	};
 
+	bat: battery {
+		compatible = "simple-battery";
+		voltage-min-design-microvolt = <3300000>;
+		voltage-max-design-microvolt = <4200000>;
+		charge-full-design-microamp-hours = <4200000>;
+		charge-term-current-microamp = <160000>;
+	};
+
 	pmic_osc: clock-pmic {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -1436,7 +1444,7 @@
 		};
 	};
 
-	bat: fuel-gauge@36 {
+	max17055: fuel-gauge@36 {
 		compatible = "maxim,max17055";
 		reg = <0x36>;
 		interrupt-parent = <&gpio3>;
@@ -1447,8 +1455,7 @@
 		maxim,over-heat-temp = <700>;
 		maxim,over-volt = <4500>;
 		maxim,rsns-microohm = <5000>;
-		maxim,termination-current = <160000>;
-		maxim,vchg-4V2;
+		monitored-battery = <&bat>;
 	};
 
 	bq25895: charger@6a {
@@ -1460,6 +1467,7 @@
 		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
 		phys = <&usb3_phy0>;
 		ti,battery-regulation-voltage = <4208000>; /* uV */
+		ti,charge-current = <1500000>; /* uA */
 		ti,termination-current = <128000>;  /* uA */
 		ti,precharge-current = <128000>; /* uA */
 		ti,minimum-sys-voltage = <3700000>; /* uV */
@@ -1469,7 +1477,6 @@
 		ti,vinmin-threshold = <3900000>; /* uV */
 		ti,thermal-regulation-threshold = <60>; /* °C */
 		ti,auto_dpdm_disable;
-		monitored-battery = <&bat>;
 		power-supplies = <&typec_pd>;
 		otg-gpios = <&gpio3 4 GPIO_ACTIVE_HIGH>;
 	};
