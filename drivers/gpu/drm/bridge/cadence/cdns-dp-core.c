@@ -551,6 +551,8 @@ int cdns_dp_bind(struct platform_device *pdev, struct drm_encoder *encoder,
 {
 	int ret;
 
+	mhdp->dp.aux.drm_dev = encoder->dev;
+
 	ret = __cdns_dp_probe(pdev, mhdp);
 	if (ret < 0)
 		return ret;
