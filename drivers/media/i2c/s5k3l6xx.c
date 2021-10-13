@@ -1043,9 +1043,9 @@ static const char * const s5k3l6_test_pattern_menu[] = {
 	"Solid", // Color selectable
 	"Bars", // 8 bars 100% saturation: black, blue, red, magents, green, cyan, yellow, white
 	"Fade", // Bars fading towards 50% at the bottom. 512px high. Subdivided into left smooth and right quantized halves.
-	"White",
 	"PN9", // pseudo-random noise
-	"LFSR32",
+	"White",
+	"LFSR32"
 	"Address",
 };
 
