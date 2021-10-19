@@ -1382,6 +1382,8 @@
 		/* I/O power supply 1,8V */
 		vddio-supply = <&reg_csi_1v8>;
 		status = "okay";
+		rotation = <270>;
+		orientation = <1>;
 
 		port {
 			camera2_ep: endpoint {
