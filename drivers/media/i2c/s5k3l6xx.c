@@ -1299,8 +1299,6 @@ static int s5k3l6xx_configure_subdevs(struct s5k3l6xx *state,
 	v4l2_info(&state->sd, "probe sd %px", (void*)&state->sd);
 	sd = &state->sd;
 	v4l2_i2c_subdev_init(sd, c, &s5k3l6xx_subdev_ops);
-	snprintf(sd->name, sizeof(sd->name), "S5K3L6-CIS %d-%04x",
-		 i2c_adapter_id(c->adapter), c->addr);
 	v4l2_info(sd, "probe i2c %px", (void*)c);
 
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
