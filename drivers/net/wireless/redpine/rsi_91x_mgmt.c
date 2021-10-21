@@ -623,7 +623,6 @@ static void rsi_set_default_parameters(struct rsi_common *common)
 	common->rf_power_val = 0; /* Default 1.9V */
 	common->device_gpio_type = TA_GPIO; /* Default TA GPIO */
 	common->country_code = 840; /* Default US */
-	common->wlan_rf_power_mode = 0;
 	common->bt_rf_power_mode = 0;
 	common->tx_power = RSI_TXPOWER_MAX;
 	common->dtim_cnt = 2;

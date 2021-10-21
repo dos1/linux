@@ -133,6 +133,7 @@ u8 antenna_sel = ANTENNA_SEL_UFL;
 #else
 u8 antenna_sel = ANTENNA_SEL_INT;
 #endif
+u8 wlan_rf_power_mode = 0x00;
 /*
  * LMAC BEACON DROP Feature Options
  * 0 - Disable
@@ -249,6 +250,10 @@ STA mode).\n '0' for disable and '1' for enable\n");
 module_param(antenna_sel, byte, 0);
 MODULE_PARM_DESC(antenna_sel, "\n Antenna selection. '2' for  intenal antenna \
 and '3' for External antenna\n");
+
+module_param(wlan_rf_power_mode, byte, 0);
+MODULE_PARM_DESC(wlan_rf_power_mode, "\n TX/RX power high: 0x00 medium: 0x11 \
+low: 0x22\n");
 
 module_param(feature_bitmap_9116, ushort, 0);
 MODULE_PARM_DESC(feature_bitmap_9116, "\n9116 Feature Bitmap BIT(0) 0: AGC_PD \
@@ -782,6 +787,7 @@ struct rsi_hw *redpine_91x_init(void)
 	common->host_intf_on_demand = host_intf_on_demand;
 	common->bt_rf_type = bt_rf_type;
 	common->obm_ant_sel_val = antenna_sel;
+	common->wlan_rf_power_mode = wlan_rf_power_mode;
 	common->antenna_diversity = antenna_diversity;
 	common->ble_tx_pwr_inx = ble_tx_pwr_inx;
 	common->ble_pwr_save_options = ble_pwr_save_options;
