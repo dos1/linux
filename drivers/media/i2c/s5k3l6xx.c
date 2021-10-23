@@ -100,6 +100,7 @@ struct s5k3l6xx_reg {
 // Relies on defaults to be set correctly.
 static const struct s5k3l6xx_reg frame_1052x780px_8bit_xfps_2lane[] = {
 	// extclk freq 25MHz (doesn't seem to matter)
+	// FIXME: this is mclk, and should be set accordingly
 	{ 0x0136, 0x1900,       2 },
 
 	// x_output_size
@@ -148,7 +149,7 @@ static const struct s5k3l6xx_reg frame_2104x1560px_8bit_xfps_2lane[] = {
 	// y_output_size
 	{ 0x034e, 0x0618,       2 },
 	// op_pll_multiplier, default 0064
-	// 0036 is good for 175MHz on mipi side, although it makes the source clock 216MHz (double-check)
+	// 0036 is ok when 175MHz selected on mipi side (IMX8MQ_CLK_CSI2_PHY_REF), although it makes the source clock 216MHz (double-check)
 	// 0042 ok for 200MHz
 	// 0052 ok for 250MHz
 	{ 0x030e, 0x0053,       2 },
@@ -195,7 +196,7 @@ static const struct s5k3l6xx_reg frame_4208x3120px_8bit_xfps_2lane[] = {
 	// y_output_size
 	{ 0x034e, 0x0c30,       2 },
 	// op_pll_multiplier, default 0064
-	// 0036 is good (max) for 175MHz on mipi side, although it makes the source clock 216MHz (double-check)
+	// 0036 is good (max) when 175MHz selected on mipi side, although it makes the source clock 216MHz (double-check)
 	// 0042 ok for 200MHz
 	// 0052 ok for 250MHz
 	// 006c for 333Mhz
@@ -241,9 +242,10 @@ struct s5k3l6xx_frame {
 	char *name;
 	u32 width;
 	u32 height;
-	u32 code;
+	u32 code; // Media bus code
 	const struct s5k3l6xx_reg  *streamregs;
 	u16 streamregcount;
+	u32 mipi_multiplier; // MIPI clock multiplier coming from PLL config, before multiplying by ext_clock
 };
 
 struct s5k3l6xx_ctrls {
@@ -344,7 +346,9 @@ static const struct s5k3l6xx_frame s5k3l6xx_frames[] = {
 		.width = 1052, .height = 780,
 		.streamregs = frame_1052x780px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_1052x780px_8bit_xfps_2lane),
+
 		.code = MEDIA_BUS_FMT_SGRBG8_1X8,
+		.mipi_multiplier = 0x36 / 4,
 	},
 	{
 		.name = "1:2 8bpp +fps",
@@ -352,6 +356,7 @@ static const struct s5k3l6xx_frame s5k3l6xx_frames[] = {
 		.streamregs = frame_2104x1560px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_2104x1560px_8bit_xfps_2lane),
 		.code = MEDIA_BUS_FMT_SGRBG8_1X8,
+		.mipi_multiplier = 0x53 / 4,
 	},
 	{
 		.name = "1:1 8bpp ?fps",
@@ -359,6 +364,7 @@ static const struct s5k3l6xx_frame s5k3l6xx_frames[] = {
 		.streamregs = frame_4208x3120px_8bit_xfps_2lane,
 		.streamregcount = ARRAY_SIZE(frame_4208x3120px_8bit_xfps_2lane),
 		.code = MEDIA_BUS_FMT_SGRBG8_1X8,
+		.mipi_multiplier = 0x33 / 4,
 	},
 };
 
@@ -847,6 +853,39 @@ static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+/** Calculating the MIPI clock
+ *
+ * Cast:
+ * - extclk (typically 25MHz)
+ * - MIPI predivider (mipi_div)
+ * - MIPI multiplier (mipi_multiplier)
+ * - MIPI postscaler (mipi_scaler)
+ *
+ * Calculation:
+ * extclk * mipi_multiplier * 2 ^ mipi_scaler / mipi_div
+ *
+ * With defaults:
+ * 24 * 0x64 * 2 ^ 0 / 4
+ * = 24 * 100 * 2 ^ 0 / 4
+ * = 600 [MHz]
+ */
+#define MIPI_CLOCK(extclk, div, multiplier, scaler) ((extclk / div * multiplier) << scaler)
+
+// FIXME: this assumes ext clock of 25MHz (as seen on the L5).
+// It probably can't be computed at compile time
+// because mclk is not fixed.
+static const s64 s5k3l6xx_link_freqs_menu[] = {
+	MIPI_CLOCK(25000000, 4, 0x33, 0), // 0x33 from 1:1 mode
+	MIPI_CLOCK(25000000, 4, 0x36, 0), // 0x36 from 1:4 mode
+	MIPI_CLOCK(25000000, 4, 0x53, 0), // 0x53 from 1:2 mode
+	MIPI_CLOCK(24000000, 4, 0x64, 0), // all from defaults (600MHz, seems right? MIPI maxes out at 625 according to module datasheet)
+};
+
+
+static unsigned s5k3l6xx_calculate_pixel_rate(unsigned mipi_clock, u8 bits_per_pixel, u8 lanes_count) {
+	return mipi_clock * 2 * lanes_count / bits_per_pixel;
+}
+
 static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd,
 			    struct v4l2_subdev_state *sd_state,
 			    struct v4l2_subdev_format *fmt)
@@ -854,6 +893,8 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
 	struct s5k3l6xx *state = to_s5k3l6xx(sd);
 	int pixfmt_idx = 0;
+	unsigned mipi_clk;
+	s32 i;
 
 	mf->field = V4L2_FIELD_NONE;
 
@@ -869,8 +910,7 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd,
 		return -EBUSY;
 	}
 
-	// FIXME: calculate link freqs
-	__v4l2_ctrl_s_ctrl(state->ctrls.link_freq, 80001337);
+
 	if (state->debug_frame) {
 		state->frame_fmt = &s5k3l6xx_frame_debug;
 		// Keep frame width/height as requested.
@@ -886,9 +926,30 @@ static int s5k3l6xx_set_fmt(struct v4l2_subdev *sd,
 		mf->height = state->frame_fmt->height;
 	}
 
+	mipi_clk = state->mclk_frequency * state->frame_fmt->mipi_multiplier;
+
+	// Report the smallest freq larger than configured.
+	// Freqs array must increase.
+	for (i = ARRAY_SIZE(s5k3l6xx_link_freqs_menu); i > 0; i--)
+		if (mipi_clk < s5k3l6xx_link_freqs_menu[i - 1])
+			break;
+
 	mf->code = state->frame_fmt->code;
 	mf->colorspace = V4L2_COLORSPACE_RAW;
 	mutex_unlock(&state->lock);
+
+	/*
+	Change of controls is conceptually atomic
+	and should maybe be done within the same lock acquisition,
+	but this ends up calling s_ctrl.
+	s_ctrl can be called from an unguarded context,
+	and it acquires the lock itself,
+	so those two are placed outside of the lock to avoid deadlocking.
+	*/
+	__v4l2_ctrl_s_ctrl(state->ctrls.link_freq, i);
+	__v4l2_ctrl_s_ctrl_int64(state->ctrls.pixel_rate,
+				 (s64)s5k3l6xx_calculate_pixel_rate(mipi_clk, 8, state->nlanes));
+
 	return 0;
 }
 
@@ -1049,9 +1110,6 @@ static const char * const s5k3l6xx_test_pattern_menu[] = {
 	"Address",
 };
 
-static const s64 s5k3l6xx_link_freqs_menu[] = {
-	80001337, // FIXME
-};
 
 static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 {
@@ -1076,7 +1134,10 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 					    2, 3118, 1, 0x03de);
 
 	ctrls->pixel_rate = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_PIXEL_RATE,
-					      0, 1, 1, 1);
+					      0,
+					      s5k3l6xx_link_freqs_menu[0],
+					      s5k3l6xx_link_freqs_menu[ARRAY_SIZE(s5k3l6xx_link_freqs_menu) - 1],
+					      s5k3l6xx_link_freqs_menu[0]);
 	ctrls->vblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VBLANK,
 					  1, 1, 1, 1);
 	ctrls->hblank = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HBLANK,
