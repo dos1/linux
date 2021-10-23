@@ -1187,7 +1187,7 @@ static int s5k3l6xx_configure_gpios(struct s5k3l6xx *state)
 	int ret, i;
 
 	for (i = 0; i < NUM_GPIOS; ++i) {
-		int flags = GPIOF_DIR_OUT;
+		unsigned long flags = GPIOF_DIR_OUT;
 		if (g[i].level)
 			flags |= GPIOF_INIT_HIGH;
 		ret = devm_gpio_request_one(&c->dev, g[i].gpio, flags, name[i]);
