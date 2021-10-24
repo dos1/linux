@@ -1038,7 +1038,7 @@ static const struct v4l2_ctrl_ops s5k3l6xx_ctrl_ops = {
 	.s_ctrl	= s5k3l6xx_s_ctrl,
 };
 
-static const char * const s5k3l6_test_pattern_menu[] = {
+static const char * const s5k3l6xx_test_pattern_menu[] = {
 	"Disabled",
 	"Solid", // Color selectable
 	"Bars", // 8 bars 100% saturation: black, blue, red, magents, green, cyan, yellow, white
@@ -1097,8 +1097,8 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
 					0x100, 0x300, 1, 0x100);
 
 	v4l2_ctrl_new_std_menu_items(hdl, ops, V4L2_CID_TEST_PATTERN,
-				     ARRAY_SIZE(s5k3l6_test_pattern_menu) - 1,
-				     0, 0, s5k3l6_test_pattern_menu);
+				     ARRAY_SIZE(s5k3l6xx_test_pattern_menu) - 1,
+				     0, 0, s5k3l6xx_test_pattern_menu);
 
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_TEST_PATTERN_RED, 0, 1023, 1, 512);
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_TEST_PATTERN_GREENR, 0, 1023, 1, 512);
