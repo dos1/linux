@@ -1415,6 +1415,7 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	struct s5k3l6xx *state;
 	int ret;
 	unsigned i;
+	unsigned long mclk_freq;
 	struct s5k3l6xx_read_result test;
 	struct dentry *d;
 
@@ -1456,6 +1457,17 @@ static int s5k3l6xx_probe(struct i2c_client *c)
 	if (IS_ERR(state->clock)) {
 		pr_err("get clk failed: failed");
 		ret = -EPROBE_DEFER;
+		goto err_me;
+	}
+
+	mclk_freq = clk_get_rate(state->clock);
+	/* The sensor supports between 6MHz and 32MHz,
+	 * but I can't properly test that.
+	 */
+	if ((mclk_freq < 25000000) || (mclk_freq > 25000000)) {
+		dev_err(&c->dev,
+			"External clock frequency out of range: %lu.\n",
+			mclk_freq);
 		goto err_me;
 	}
 
