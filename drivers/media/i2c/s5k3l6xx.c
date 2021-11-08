@@ -813,7 +813,7 @@ static int s5k3l6xx_enum_frame_size(struct v4l2_subdev *sd,
 		matching++;
 	}
 
-	dev_err(sd->dev, "fsize i %d m %d", i, matching);
+	dev_dbg(sd->dev, "fsize i %d m %d", i, matching);
 
 	return -EINVAL;
 }
@@ -839,14 +839,14 @@ static int s5k3l6xx_get_fmt(struct v4l2_subdev *sd,
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, sd_state, fmt->pad);
 		fmt->format = *mf;
-		dev_err(sd->dev, "try mf %dx%d", mf->width, mf->height);
+		dev_dbg(sd->dev, "try mf %dx%d", mf->width, mf->height);
 		return 0;
 	}
 
 	mf = &fmt->format;
 	if (fmt->pad == PAD_CIS) {
 		s5k3l6xx_get_current_cis_format(sd, mf);
-		dev_err(sd->dev, "mf %dx%d", mf->width, mf->height);
+		dev_dbg(sd->dev, "mf %dx%d", mf->width, mf->height);
 		return 0;
 	}
 	dev_err(sd->dev, "Not a CIS pad! %d", fmt->pad);
