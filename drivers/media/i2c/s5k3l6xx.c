@@ -1577,7 +1577,11 @@ static int s5k3l6xx_remove(struct i2c_client *c)
 	return 0;
 }
 
-UNIVERSAL_DEV_PM_OPS(s5k3l6xx_pm_ops, s5k3l6xx_suspend, s5k3l6xx_resume, NULL);
+static const struct dev_pm_ops s5k3l6xx_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				pm_runtime_force_resume)
+	SET_RUNTIME_PM_OPS(s5k3l6xx_suspend, s5k3l6xx_resume, NULL)
+};
 
 static const struct i2c_device_id s5k3l6xx_id[] = {
 	{ S5K3L6XX_DRIVER_NAME, 0 },
