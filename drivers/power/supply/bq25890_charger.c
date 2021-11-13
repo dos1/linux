@@ -647,7 +647,7 @@ static int bq25890_get_chip_state(struct bq25890_device *bq,
 
 static void bq25890_log_ntc_faults(struct bq25890_device *bq, struct bq25890_state *new_state)
 {
-	if (new_state->ntc_fault != bq->state.ntc_fault)
+	if (new_state->ntc_fault == bq->state.ntc_fault)
 		return;
 
 	switch(new_state->ntc_fault) {
