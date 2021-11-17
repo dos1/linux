@@ -863,6 +863,13 @@ static void bq25890_external_power_changed(struct power_supply *psy)
 	struct power_supply *psy_supply;
 	union power_supply_propval val;
 
+	/*
+	 * This function can be called before bq->charger is set; returning early
+	 * is fine because it will be re-run at the end of the probe.
+	 */
+	if (!bq->charger)
+		return;
+
 	supplied = power_supply_am_i_supplied(bq->charger);
 	dev_info(bq->dev, "Upstream supply changed: %d.\n", supplied);
 
