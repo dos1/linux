@@ -39,6 +39,15 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_keys>, <&pinctrl_hsw>;
 
+		wwan_wake {
+			label = "WWAN_WAKE";
+			gpios = <&gpio3 15 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&gpio3>;
+			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+			linux,code = <KEY_PHONE>;
+			wakeup-source;
+		};
+
 		vol-down {
 			label = "VOL_DOWN";
 			gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;
