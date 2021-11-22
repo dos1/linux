@@ -318,6 +318,9 @@ static int imx_pgc_power_down(struct generic_pm_domain *genpd)
 	u32 reg_val, pgc;
 	int ret;
 
+	if (pm_runtime_suspended(domain->dev))
+		return 0;
+
 	/* Enable reset clocks for all devices in the domain */
 	if (!domain->keep_clocks) {
 		ret = clk_bulk_prepare_enable(domain->num_clks, domain->clks);
