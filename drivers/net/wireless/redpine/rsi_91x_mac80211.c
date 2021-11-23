@@ -1768,8 +1768,6 @@ static int rsi_mac80211_ampdu_action(struct ieee80211_hw *hw,
 			break;
 	}
 
-	mutex_lock(&common->mutex);
-
 #if (((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 69)) && \
       (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))) || \
      (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)))
@@ -1869,7 +1867,6 @@ static int rsi_mac80211_ampdu_action(struct ieee80211_hw *hw,
 		break;
 	}
 
-	mutex_unlock(&common->mutex);
 	return status;
 }
 
