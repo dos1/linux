@@ -228,7 +228,7 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 					sizeof(cmd), &cmd,
 					datalen, rdbuf);
 	if (error) {
-		dev_err_ratelimited(dev, "Unable to fetch data, error: %d\n",
+		dev_warn_ratelimited(dev, "Unable to fetch data, error: %d\n",
 				    error);
 		// HACK: empty all slots on error
 		for (i = 0; i < tsdata->max_support_points; i++) {
