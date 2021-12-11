@@ -977,7 +977,6 @@ static int s5k3l6xx_get_selection(struct v4l2_subdev *sd,
 	// If no, then it can be independent of mode (frame format).
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-	case V4L2_SEL_TGT_CROP_DEFAULT:
 		mutex_lock(&state->lock);
 		switch (sel->which) {
 		case V4L2_SUBDEV_FORMAT_TRY:
@@ -989,6 +988,7 @@ static int s5k3l6xx_get_selection(struct v4l2_subdev *sd,
 		}
 		mutex_unlock(&state->lock);
 		return 0;
+	case V4L2_SEL_TGT_CROP_DEFAULT:
 	case V4L2_SEL_TGT_CROP_BOUNDS:
 	case V4L2_SEL_TGT_NATIVE_SIZE:
 		sel->r.top = 0;
