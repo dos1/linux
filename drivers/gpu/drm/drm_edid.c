@@ -1666,7 +1666,6 @@ static void edid_vendor_string(const struct edid *edid, char vendor[4])
 	vendor[2] = (edid->mfg_id[1] & 0x1f) + '@';
 }
 
-
 static const struct edid_checksum_quirk {
 	char vendor[4];
 	int product_id;
@@ -1677,7 +1676,24 @@ static const struct edid_checksum_quirk {
 	{ "RTK", 0x2a3b, 0, 65 },
 };
 
-static bool edid_vendor(const struct edid *edid, const char *vendor);
+/**
+ * edid_vendor - match a string against EDID's obfuscated vendor field
+ * @edid: EDID to match
+ * @vendor: vendor string
+ *
+ * Returns true if @vendor is in @edid, false otherwise
+ */
+static bool edid_vendor(const struct edid *edid, const char *vendor)
+{
+	char edid_vendor[3];
+
+	edid_vendor[0] = ((edid->mfg_id[0] & 0x7c) >> 2) + '@';
+	edid_vendor[1] = (((edid->mfg_id[0] & 0x3) << 3) |
+			 ((edid->mfg_id[1] & 0xe0) >> 5)) + '@';
+	edid_vendor[2] = (edid->mfg_id[1] & 0x1f) + '@';
+
+	return !strncmp(edid_vendor, vendor, 3);
+}
 
 static bool
 checksum_quirk(const struct edid *edid, u32 block, u32 csum)
@@ -1686,7 +1702,8 @@ checksum_quirk(const struct edid *edid, u32 block, u32 csum)
 	char vendor[4];
 	int i;
 
-	edid_vendor_string (edid, vendor);
+	edid_vendor_string(edid, vendor);
+
 	for (i = 0; i < ARRAY_SIZE(edid_checksum_quirk_list); i++) {
 		quirk = &edid_checksum_quirk_list[i];
 		if (edid_vendor(edid, quirk->vendor) &&
