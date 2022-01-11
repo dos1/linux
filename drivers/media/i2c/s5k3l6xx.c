@@ -1227,7 +1227,6 @@ static int s5k3l6xx_initialize_ctrls(struct s5k3l6xx *state)
  * V4L2 subdev internal operations
  */
 static const struct v4l2_subdev_core_ops s5k3l6xx_core_ops = {
-	.s_power = s5k3l6xx_set_power,
 	.log_status = v4l2_ctrl_subdev_log_status,
 };
 
