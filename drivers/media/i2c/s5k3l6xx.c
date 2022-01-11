@@ -68,6 +68,8 @@ module_param(debug, int, 0644);
 #define S5K3L6XX_REG_AF			0x3403
 #define S5K3L6XX_REG_AF_BIT_FILTER	0b100
 
+#define S5K3L6XX_REG_PLL_PD		0x3c1e
+
 #define S5K3L6XX_REG_MODE_SELECT	0x100
 #define S5K3L6XX_MODE_STREAMING		0x1
 #define S5K3L6XX_MODE_STANDBY		0x0
@@ -665,8 +667,29 @@ out:
 
 static int s5k3l6xx_hw_set_stream(struct s5k3l6xx *state, int enable)
 {
+	int ret;
+
 	v4l2_dbg(3, debug, &state->sd, "set_stream %d", enable);
-	return s5k3l6xx_i2c_write(state, S5K3L6XX_REG_MODE_SELECT, enable ? S5K3L6XX_MODE_STREAMING : S5K3L6XX_MODE_STANDBY);
+
+	if (!enable) {
+		ret = s5k3l6xx_i2c_write(state, S5K3L6XX_REG_MODE_SELECT,
+					 S5K3L6XX_MODE_STANDBY);
+		if (ret)
+			return ret;
+
+		return 0;
+	}
+
+	ret = s5k3l6xx_i2c_write(state, S5K3L6XX_REG_PLL_PD, 0x01);
+	if (ret)
+		return ret;
+
+	ret = s5k3l6xx_i2c_write(state, S5K3L6XX_REG_MODE_SELECT,
+				 S5K3L6XX_MODE_STREAMING);
+	if (ret)
+		return ret;
+
+	return s5k3l6xx_i2c_write(state, S5K3L6XX_REG_PLL_PD, 0x00);
 }
 
 static int s5k3l6xx_s_stream(struct v4l2_subdev *sd, int on)
