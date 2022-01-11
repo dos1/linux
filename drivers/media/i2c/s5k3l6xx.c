@@ -571,7 +571,7 @@ static void s5k3l6xx_gpio_assert(struct s5k3l6xx *state, int id)
 	if (gpio == 0)
 		return;
 
-	gpio_set_value(gpio->gpio, gpio->level);
+	gpio_set_value_cansleep(gpio->gpio, gpio->level);
 }
 
 static void s5k3l6xx_gpio_deassert(struct s5k3l6xx *state, int id)
@@ -581,7 +581,7 @@ static void s5k3l6xx_gpio_deassert(struct s5k3l6xx *state, int id)
 	if (gpio == 0)
 		return;
 
-	gpio_set_value(gpio->gpio, !gpio->level);
+	gpio_set_value_cansleep(gpio->gpio, !gpio->level);
 }
 
 static int s5k3l6xx_power_on(struct s5k3l6xx *state)
