@@ -1260,7 +1260,6 @@ static int __maybe_unused s5k3l6xx_resume(struct device *dev)
 	dev_dbg(dev, "%s\n", __func__);
 
 	ret = s5k3l6xx_set_power(sd, TRUE);
-	msleep(500);
 
 	if (ret == 0 && state->streaming)
 		s5k3l6xx_hw_set_stream(state, 1);
