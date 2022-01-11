@@ -1387,7 +1387,6 @@ static int s5k3l6xx_configure_subdevs(struct s5k3l6xx *state,
 	ret = media_entity_pads_init(&sd->entity, NUM_CIS_PADS, &state->cis_pad);
 	if (ret < 0)
 		goto err;*/
-	v4l2_info(&state->sd, "probe sd %px", (void*)&state->sd);
 	sd = &state->sd;
 	v4l2_i2c_subdev_init(sd, c, &s5k3l6xx_subdev_ops);
 	v4l2_info(sd, "probe i2c %px", (void*)c);
