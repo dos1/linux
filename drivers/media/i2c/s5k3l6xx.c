@@ -587,8 +587,9 @@ static void s5k3l6xx_gpio_deassert(struct s5k3l6xx *state, int id)
 static int s5k3l6xx_power_on(struct s5k3l6xx *state)
 {
 	int ret;
+
 	v4l2_dbg(1, debug, &state->sd, "power_ON\n");
-	// Will this fail if any regulator is already enabled?
+
 	ret = regulator_bulk_enable(S5K3L6XX_NUM_SUPPLIES, state->supplies);
 	if (ret < 0)
 		goto err;
@@ -604,8 +605,10 @@ static int s5k3l6xx_power_on(struct s5k3l6xx *state)
 	v4l2_dbg(1, debug, &state->sd, "ON. clock frequency: %ld\n",
 		 clk_get_rate(state->clock));
 
-	usleep_range(50, 100);
+	usleep_range(500, 1000);
 	s5k3l6xx_gpio_deassert(state, RST);
+	usleep_range(500, 1000);
+
 	return 0;
 
 err_reg_dis:
@@ -618,10 +621,14 @@ err:
 static int s5k3l6xx_power_off(struct s5k3l6xx *state)
 {
 	int ret;
+
 	v4l2_dbg(1, debug, &state->sd, "power_OFF\n");
+
 	state->streaming = 0;
 	state->apply_cfg = 0;
 	state->apply_crop = 0;
+
+	usleep_range(500, 1000);
 
 	s5k3l6xx_gpio_assert(state, RST);
 
