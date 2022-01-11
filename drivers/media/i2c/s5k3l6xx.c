@@ -1269,10 +1269,9 @@ static int __maybe_unused s5k3l6xx_resume(struct device *dev)
 	return ret;
 }
 
-// FIXME: are we even using this?
 static int s5k3l6xx_configure_gpios(struct s5k3l6xx *state)
 {
-	static const char * const name[] = { "S5K5BAF_RST" };
+	static const char * const name[] = { "S5K3L6XX_RST" };
 	struct i2c_client *c = v4l2_get_subdevdata(&state->sd);
 	struct s5k3l6xx_gpio *g = state->gpios;
 	int ret, i;
