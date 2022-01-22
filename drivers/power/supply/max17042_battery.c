@@ -1242,6 +1242,14 @@ static int max17042_suspend(struct device *dev)
 	 */
 	if (chip->client->irq) {
 		disable_irq(chip->client->irq);
+
+		if (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055) {
+			regmap_update_bits(chip->regmap, MAX17055_Config2,
+					CONFIG2_DSOCI_BIT_ENBL,
+					0);
+		}
+		max17042_set_critical_soc_threshold(chip);
+
 		enable_irq_wake(chip->client->irq);
 	}
 
@@ -1254,9 +1262,17 @@ static int max17042_resume(struct device *dev)
 
 	if (chip->client->irq) {
 		disable_irq_wake(chip->client->irq);
+
+		if (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055) {
+			regmap_update_bits(chip->regmap, MAX17055_Config2,
+					CONFIG2_DSOCI_BIT_ENBL,
+					CONFIG2_DSOCI_BIT_ENBL);
+		}
+
+		/* re-program the SOC thresholds */
+		max17042_update_soc_threshold(chip);
+
 		enable_irq(chip->client->irq);
-		/* re-program the SOC thresholds to 1% change */
-		max17042_set_soc_threshold(chip, 1);
 	}
 
 	return 0;
