@@ -107,9 +107,9 @@ static const struct s5k3l6xx_reg frame_1052x780px_8bit_xfps_2lane[] = {
 
 	// x_output_size
 	{ 0x034c, 0x041c,       2 },
-	// line length in pixel clocks. x_output_size * 1.16
+	// line length in pixel clocks. at least x_output_size * 1.16
 	// if using binning multiply x_output_size by the binning factor first
-	{ 0x0342, 0x1320,       2 },
+	{ 0x0342, 0x1980,       2 },
 	// y_output_size
 	{ 0x034e, 0x030c,       2 },
 
@@ -202,7 +202,7 @@ static const struct s5k3l6xx_reg frame_4208x3120px_8bit_xfps_2lane[] = {
 	// 0042 ok for 200MHz
 	// 0052 ok for 250MHz
 	// 006c for 333Mhz
-	{ 0x030e, 0x0033,       2 },
+	{ 0x030e, 0x006c,       2 },
 
 	// y_addr_start
 	{ 0x0346, 0x0000,       2 },
@@ -212,8 +212,8 @@ static const struct s5k3l6xx_reg frame_4208x3120px_8bit_xfps_2lane[] = {
 	{ 0x0344, 0x0000,       2 },
 	// end to match sensor
 	{ 0x0348, 0x1068,       2 },
-	// line length in pixel clocks. This is a slow mode.
-	{ 0x0342, 0x3600,       2 },
+	// line length in pixel clocks
+	{ 0x0342, 0x1980,       2 },
 
 	// Noise reduction
 	// The last 3 bits (0x0007) control some global brightness/noise pattern.
