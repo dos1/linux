@@ -73,6 +73,6 @@ void rsi_usb_rx_thread(struct rsi_common *common)
 
 	redpine_dbg(INFO_ZONE, "%s: Terminated USB RX thread\n", __func__);
 	atomic_inc(&dev->rx_thread.thread_done);
-	complete_and_exit(&dev->rx_thread.completion, 0);
+	kthread_complete_and_exit(&dev->rx_thread.completion, 0);
 }
 
