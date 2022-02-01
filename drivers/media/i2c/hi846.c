@@ -1755,7 +1755,7 @@ static int hi846_otp_apply_awb(struct hi846 *hi846)
 	B_golden = (data[8] << 8) | data[9];
 	Gr_Gb_golden = (data[10] << 8) | data[11];
 
-	dev_dbg(&c->dev, "OTP awb golden gains: R:%u G:%u B:%u\n",
+	dev_err(&c->dev, "OTP awb golden gains: R:%u G:%u B:%u\n",
 			 R_golden, Gr_Gb_golden, B_golden);
 
 	R_gain = 0x200 * R_golden / R_unit;
@@ -1775,7 +1775,7 @@ static int hi846_otp_apply_awb(struct hi846 *hi846)
 			B_gain = 0x200;
 		}
 	}
-	dev_dbg(&c->dev, "WB digital gain: R:%u G:%u B:%u\n",
+	dev_err(&c->dev, "WB digital gain: R:%u G:%u B:%u\n",
 		R_gain, G_gain, B_gain);
 
 	hi846_write_reg_16(hi846, HI846_REG_MWB_R_GAIN_H, R_gain, &ret);
