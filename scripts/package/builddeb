@@ -237,9 +237,11 @@ for script in postinst; do
 
 set -e
 
-# We now have a working (uncompressed) kernel and initrd so
-# no need to keep the uncompressed pair:
-rm -f /boot/vmlinuz /boot/initrd.img
+if [ "\$1" = "configure" ]; then
+    # We now have a working (uncompressed) kernel and initrd so
+    # no need to keep the uncompressed pair:
+    rm -f /boot/vmlinuz /boot/initrd.img
+fi
 
 # Pass maintainer script parameters to hook scripts
 export DEB_MAINT_PARAMS="\$*"
