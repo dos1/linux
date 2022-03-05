@@ -13,6 +13,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
 #include <linux/usb/phy.h>
 #include <linux/regulator/consumer.h>
 
@@ -124,6 +125,7 @@ struct bq25890_device {
 
 	struct mutex lock; /* protect state data */
 	struct gpio_desc *otg_en;
+	unsigned long long adc_timestamp;
 };
 
 static const struct regmap_range bq25890_readonly_reg_ranges[] = {
@@ -458,8 +460,13 @@ static int bq25890_power_supply_get_property(struct power_supply *psy,
 	__bq25890_handle_irq(bq);
 	state = bq->state;
 	do_adc_conv = !state.online && bq25890_is_adc_property(psp);
-	if (do_adc_conv)
+	/* throttle ADC conversions to 1s */
+	if (sched_clock() - bq->adc_timestamp < NSEC_PER_SEC)
+		do_adc_conv = false;
+	if (do_adc_conv) {
+		bq->adc_timestamp = sched_clock();
 		bq25890_field_write(bq, F_CONV_START, 1);
+	}
 	mutex_unlock(&bq->lock);
 
 	if (do_adc_conv)
@@ -709,6 +716,7 @@ static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
 		ret = bq25890_field_write(bq, F_CONV_START, 1);
 		if (ret < 0)
 			goto error;
+		bq->adc_timestamp = sched_clock();
 	}
 
 	bq->state = new_state;
@@ -815,6 +823,7 @@ static int bq25890_hw_init(struct bq25890_device *bq)
 		dev_dbg(bq->dev, "Config ADC failed %d\n", ret);
 		return ret;
 	}
+	bq->adc_timestamp = sched_clock();
 
 	/* Configure ADC for continuous conversions when charging */
 	ret = bq25890_field_write(bq, F_CONV_RATE, !!bq->state.online);
