@@ -879,10 +879,14 @@ static int tps6598x_probe(struct i2c_client *client)
 
 		irq_handler = cd321x_interrupt;
 	} else {
-		/* Enable power status, data status and plug event interrupts */
+		/* Enable interrupts used by this driver */
 		mask1 = TPS_REG_INT_POWER_STATUS_UPDATE |
 			TPS_REG_INT_DATA_STATUS_UPDATE |
-			TPS_REG_INT_PLUG_EVENT;
+			TPS_REG_INT_PLUG_EVENT |
+			TPS_REG_INT_PP_SWITCH_CHANGED |
+			TPS_REG_INT_NEW_CONTRACT_AS_CONSUMER |
+			TPS_REG_INT_HARD_RESET |
+			TPS_REG_INT_STATUS_UPDATE;
 	}
 
 	/* Make sure the controller has application firmware running */
