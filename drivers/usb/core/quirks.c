@@ -208,7 +208,10 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* Creative SB Audigy 2 NX */
 	{ USB_DEVICE(0x041e, 0x3020), .driver_info = USB_QUIRK_RESET_RESUME },
 
-	/* USB3503 */
+	/* Microchip Hub USB2642 */
+	{ USB_DEVICE(0x0424, 0x2640), .driver_info = USB_QUIRK_HUB_SLOW_RESET },
+
+	/* Microchip Hub USB3503 */
 	{ USB_DEVICE(0x0424, 0x3503), .driver_info = USB_QUIRK_RESET_RESUME },
 
 	/* Microsoft Wireless Laser Mouse 6000 Receiver */
