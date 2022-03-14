@@ -772,8 +772,8 @@ static irqreturn_t tps6598x_interrupt(int irq, void *data)
 			dev_err( tps->dev, "The interrupt is masked , how did it fire ?? %llx", mask);
 
 		if (!(status & TPS_STATUS_PLUG_PRESENT) ||
-		    TPS_STATUS_CONN_STATE(status) !=
-		    (TPS_STATUS_CONN_STATE_CONN_NO_R_A | TPS_STATUS_CONN_STATE_CONN_WITH_R_A)) {
+		    ((TPS_STATUS_CONN_STATE(status) != TPS_STATUS_CONN_STATE_CONN_NO_R_A) &&
+		    (TPS_STATUS_CONN_STATE(status) != TPS_STATUS_CONN_STATE_CONN_WITH_R_A))) {
 			/* the status update register can fire even when masked so try
 			   and mask it again */
 			ret = tps6598x_mask_cc_int(tps, true);
