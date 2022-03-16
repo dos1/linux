@@ -729,8 +729,6 @@ static int tps6598x_check_mode(struct tps6598x *tps)
 	case TPS_MODE_APP:
 		return 0;
 	case TPS_MODE_BOOT:
-		dev_warn(tps->dev, "dead-battery condition\n");
-		return 0;
 	case TPS_MODE_BIST:
 	case TPS_MODE_DISC:
 	default:
