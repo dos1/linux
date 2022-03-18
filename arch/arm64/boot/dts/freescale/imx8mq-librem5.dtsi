@@ -69,19 +69,22 @@
 		compatible = "pwm-leds";
 
 		blue {
-			label = "blue:status";
+			function = LED_FUNCTION_STATUS;
+			color = <LED_COLOR_ID_BLUE>;
 			max-brightness = <248>;
 			pwms = <&pwm2 0 50000>;
 		};
 
 		green {
-			label = "green:status";
+			function = LED_FUNCTION_STATUS;
+			color = <LED_COLOR_ID_GREEN>;
 			max-brightness = <248>;
 			pwms = <&pwm4 0 50000>;
 		};
 
 		red {
-			label = "red:status";
+			function = LED_FUNCTION_STATUS;
+			color = <LED_COLOR_ID_RED>;
 			max-brightness = <248>;
 			pwms = <&pwm3 0 50000>;
 		};
