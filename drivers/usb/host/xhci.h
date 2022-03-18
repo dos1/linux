@@ -1722,7 +1722,7 @@ struct xhci_bus_state {
  * It can take up to 20 ms to transition from RExit to U0 on the
  * Intel Lynx Point LP xHCI host.
  */
-#define	XHCI_MAX_REXIT_TIMEOUT_MS	20
+#define	XHCI_MAX_REXIT_TIMEOUT_MS	160
 struct xhci_port_cap {
 	u32			*psi;	/* array of protocol speed ID entries */
 	u8			psi_count;
