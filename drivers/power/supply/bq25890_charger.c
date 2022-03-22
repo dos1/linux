@@ -591,6 +591,8 @@ static int bq25890_power_supply_get_property(struct power_supply *psy,
 		ret = bq25890_field_read(bq, F_TSPCT);
 		if (ret < 0)
 			return ret;
+		if (ret == 0)
+			return -ENODATA;
 
 		/* convert TS percentage into rough temperature */
 		val->intval = bq25890_find_val(ret, TBL_TSPCT);
