@@ -99,6 +99,7 @@ static enum power_supply_property max17042_battery_props[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	// these two have to be at the end on the list
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
@@ -438,6 +439,18 @@ static int max17042_get_property(struct power_supply *psy,
 		ret = regmap_read(map, MAX17042_TTE, &data);
 		if (ret < 0)
 			return ret;
+		if (data == 0xffff)
+			return -ENODATA;
+
+		val->intval = MAX17042_TIME(data);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+		// TODO: model check
+		ret = regmap_read(map, MAX17055_TTF, &data);
+		if (ret < 0)
+			return ret;
+		if (data == 0xffff)
+			return -ENODATA;
 
 		val->intval = MAX17042_TIME(data);
 		break;
