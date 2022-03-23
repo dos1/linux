@@ -28,7 +28,7 @@ build:aarch64:
 #    - KCFLAGS="-Werror" make -j 4 ${CROSS_BUILD} Image dtbs modules
 #    - make -j 4 ${CROSS_BUILD} INSTALL_MOD_PATH=modules/ modules_install
   script:
-    - git clean -dfx
+#    - git clean -dfx
     - git checkout -f
     - rm -f ../* || true
     - rm -rf "${WORKING_DIR}"; mkdir -p "${WORKING_DIR}"
