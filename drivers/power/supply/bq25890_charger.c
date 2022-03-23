@@ -573,6 +573,8 @@ static int bq25890_power_supply_get_property(struct power_supply *psy,
 		ret = bq25890_field_read(bq, F_SYSV); /* read measured value */
 		if (ret < 0)
 			return ret;
+		if (ret == 0)
+			return -ENODATA;
 
 		/* converted_val = 2.304V + ADC_val * 20mV (table 10.3.15) */
 		val->intval = 2304000 + ret * 20000;
