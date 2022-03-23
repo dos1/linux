@@ -9,8 +9,9 @@
 #include <linux/of_platform.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
-#include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
+#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 
 #define PHY_CTRL0			0x0
 #define PHY_CTRL0_REF_SSP_EN		BIT(2)
@@ -58,9 +59,10 @@ struct imx8mq_usb_phy {
 	struct clk *clk;
 	void __iomem *base;
 	struct regulator *vbus;
-	struct notifier_block chg_det_nb;
-	struct power_supply *vbus_power_supply;
-	enum power_supply_usb_type chg_type;
+	struct extcon_dev *edev;
+	struct notifier_block edev_notifier;
+	struct work_struct edev_work;
+	int chg_type;
 };
 
 static int imx8mq_usb_phy_init(struct phy *phy)
@@ -174,8 +176,9 @@ static int imx8mq_chg_data_contact_det(struct imx8mq_usb_phy *imx_phy)
 	writel(val, imx_phy->base + PHY_CTRL1);
 
 	if (i == 100) {
-		dev_err(&imx_phy->phy->dev,
+		dev_dbg(&imx_phy->phy->dev,
 			"VBUS is coming from a dedicated power supply.\n");
+		imx_phy->chg_type = EXTCON_CHG_USB_SLOW;
 
 		/* disable override before finish */
 		val = readl(imx_phy->base + PHY_CTRL5);
@@ -210,7 +213,7 @@ static int imx8mq_chg_primary_detect(struct imx8mq_usb_phy *imx_phy)
 	val = readl(imx_phy->base + PHY_STS0);
 	if (!(val & PHY_STS0_CHGDET)) {
 		dev_dbg(&imx_phy->phy->dev, "It is a SDP.\n");
-		imx_phy->chg_type = POWER_SUPPLY_USB_TYPE_SDP;
+		imx_phy->chg_type = EXTCON_CHG_USB_SDP;
 	}
 
 	return 0;
@@ -235,10 +238,10 @@ static int imx8mq_phy_chg_secondary_det(struct imx8mq_usb_phy *imx_phy)
 	val = readl(imx_phy->base + PHY_STS0);
 	if (val & PHY_STS0_CHGDET) {
 		dev_dbg(&imx_phy->phy->dev, "It is a DCP.\n");
-		imx_phy->chg_type = POWER_SUPPLY_USB_TYPE_DCP;
+		imx_phy->chg_type = EXTCON_CHG_USB_DCP;
 	} else {
 		dev_dbg(&imx_phy->phy->dev, "It is a CDP.\n");
-		imx_phy->chg_type = POWER_SUPPLY_USB_TYPE_CDP;
+		imx_phy->chg_type = EXTCON_CHG_USB_CDP;
 	}
 
 	return 0;
@@ -262,101 +265,67 @@ static int imx8mq_phy_charger_detect(struct imx8mq_usb_phy *imx_phy)
 {
 	struct device *dev = &imx_phy->phy->dev;
 	struct device_node *np = dev->parent->of_node;
-	union power_supply_propval propval;
 	u32 value;
 	int ret = 0;
 
 	if (!np)
 		return 0;
 
-	imx_phy->vbus_power_supply = power_supply_get_by_phandle(np,
-						"vbus-power-supply");
-	if (IS_ERR_OR_NULL(imx_phy->vbus_power_supply))
+	if (!imx_phy->edev)
 		return 0;
 
-	if (imx_phy->chg_type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
-		goto put_psy;
+	if (!extcon_get_state(imx_phy->edev, EXTCON_USB))
+		return 0;
 
-	ret = power_supply_get_property(imx_phy->vbus_power_supply,
-					POWER_SUPPLY_PROP_ONLINE,
-					&propval);
-
-	if (ret || propval.intval == 0) {
-		dev_err(dev, "failed to get psy online info\n");
-		ret = -EINVAL;
-		goto put_psy;
-	}
+	if (imx_phy->chg_type != EXTCON_NONE)
+		return 0;
 
 	/* Check if vbus is valid */
 	value = readl(imx_phy->base + PHY_STS0);
 	if (!(value & PHY_STS0_OTGSESSVLD)) {
 		dev_err(&imx_phy->phy->dev, "vbus is error\n");
-		ret = -EINVAL;
-		goto put_psy;
+		return -EINVAL;
 	}
-
-	imx_phy->chg_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 
 	ret = imx8mq_chg_data_contact_det(imx_phy);
 	if (ret)
-		goto put_psy;
+		goto out;
 
 	ret = imx8mq_chg_primary_detect(imx_phy);
-	if (!ret && imx_phy->chg_type != POWER_SUPPLY_USB_TYPE_SDP)
+	if (!ret && imx_phy->chg_type != EXTCON_CHG_USB_SDP)
 		ret = imx8mq_phy_chg_secondary_det(imx_phy);
 
 	imx8mq_phy_disable_chg_det(imx_phy);
 
-	if (!ret) {
-		propval.intval = imx_phy->chg_type;
-		power_supply_set_property(imx_phy->vbus_power_supply,
-					  POWER_SUPPLY_PROP_USB_TYPE,
-					  &propval);
-	}
-
-put_psy:
-	power_supply_put(imx_phy->vbus_power_supply);
+out:
+	extcon_set_state_sync(imx_phy->edev, imx_phy->chg_type, true);
 
 	return ret;
 }
 
-static int imx8mq_phy_usb_vbus_notify(struct notifier_block *nb,
-				      unsigned long val, void *v)
+static void imx8mq_phy_extcon_notify_worker(struct work_struct *work)
 {
-	struct imx8mq_usb_phy *imx_phy = container_of(nb, struct imx8mq_usb_phy,
-						      chg_det_nb);
-	struct device *dev = &imx_phy->phy->dev;
-	struct device_node *np = dev->parent->of_node;
-	union power_supply_propval propval;
-	struct power_supply *psy = v;
-	int ret;
+	struct imx8mq_usb_phy *imx_phy =
+		container_of(work, struct imx8mq_usb_phy, edev_work);
 
-	if (!np)
-		return NOTIFY_DONE;
+	if (extcon_get_state(imx_phy->edev, EXTCON_USB))
+		return;
 
-	imx_phy->vbus_power_supply = power_supply_get_by_phandle(np,
-						"vbus-power-supply");
-	if (IS_ERR_OR_NULL(imx_phy->vbus_power_supply)) {
-		dev_err(dev, "failed to get power supply\n");
-		return NOTIFY_DONE;
-	}
+	if (extcon_get_state(imx_phy->edev, EXTCON_USB_HOST))
+		extcon_set_state_sync(imx_phy->edev, EXTCON_USB_HOST, false);
 
-	if (val == PSY_EVENT_PROP_CHANGED && psy == imx_phy->vbus_power_supply) {
-		ret = power_supply_get_property(imx_phy->vbus_power_supply,
-						POWER_SUPPLY_PROP_ONLINE,
-						&propval);
-		if (ret) {
-			dev_err(dev, "failed to get psy online info\n");
-			power_supply_put(imx_phy->vbus_power_supply);
-			return NOTIFY_DONE;
-		}
+	if (imx_phy->chg_type != EXTCON_NONE)
+		extcon_set_state_sync(imx_phy->edev, imx_phy->chg_type, false);
 
-		if (propval.intval == 0)
-			imx_phy->chg_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-	}
+	imx_phy->chg_type = EXTCON_NONE;
+}
 
-	power_supply_put(imx_phy->vbus_power_supply);
-
+static int imx8mq_phy_extcon_notify(struct notifier_block *nb,
+				  unsigned long event, void *param)
+{
+	struct imx8mq_usb_phy *imx_phy =
+		container_of(nb, struct imx8mq_usb_phy, edev_notifier);
+	schedule_work(&imx_phy->edev_work);
 	return NOTIFY_OK;
 }
 
@@ -364,6 +333,9 @@ static int imx8mq_phy_set_mode(struct phy *phy, enum phy_mode mode,
 			       int submode)
 {
 	struct imx8mq_usb_phy *imx_phy = phy_get_drvdata(phy);
+
+	if (imx_phy->edev)
+		extcon_set_state_sync(imx_phy->edev, EXTCON_USB_HOST, mode == PHY_MODE_USB_HOST);
 
 	if (mode == PHY_MODE_USB_DEVICE)
 		return imx8mq_phy_charger_detect(imx_phy);
@@ -433,12 +405,23 @@ static const struct of_device_id imx8mq_usb_phy_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, imx8mq_usb_phy_of_match);
 
+static const unsigned int imx8mq_usb_phy_extcon_cable[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_CHG_USB_SDP,
+	EXTCON_CHG_USB_DCP,
+	EXTCON_CHG_USB_CDP,
+	EXTCON_CHG_USB_SLOW,
+	EXTCON_NONE,
+};
+
 static int imx8mq_usb_phy_probe(struct platform_device *pdev)
 {
 	struct phy_provider *phy_provider;
 	struct device *dev = &pdev->dev;
 	struct imx8mq_usb_phy *imx_phy;
 	const struct phy_ops *phy_ops;
+	int ret;
 
 	imx_phy = devm_kzalloc(dev, sizeof(*imx_phy), GFP_KERNEL);
 	if (!imx_phy)
@@ -469,9 +452,34 @@ static int imx8mq_usb_phy_probe(struct platform_device *pdev)
 	phy_set_drvdata(imx_phy->phy, imx_phy);
 	platform_set_drvdata(pdev, imx_phy);
 
-	if (device_property_present(dev, "vbus-power-supply")) {
-		imx_phy->chg_det_nb.notifier_call = imx8mq_phy_usb_vbus_notify;
-		power_supply_reg_notifier(&imx_phy->chg_det_nb);
+	imx_phy->edev = devm_extcon_dev_allocate(dev, imx8mq_usb_phy_extcon_cable);
+	if (IS_ERR(imx_phy->edev)) {
+		dev_err(dev, "failed to allocate memory for extcon\n");
+		imx_phy->edev = NULL;
+	}
+
+	if (imx_phy->edev) {
+		/* Register extcon device */
+		ret = devm_extcon_dev_register(dev, imx_phy->edev);
+		if (ret)
+			dev_err(dev, "failed to register extcon device: %d\n", ret);
+
+		/* set initial state */
+		extcon_set_state_sync(imx_phy->edev, EXTCON_USB, false);
+		extcon_set_state_sync(imx_phy->edev, EXTCON_USB_HOST, false);
+		extcon_set_state_sync(imx_phy->edev, EXTCON_CHG_USB_SDP, false);
+		extcon_set_state_sync(imx_phy->edev, EXTCON_CHG_USB_DCP, false);
+		extcon_set_state_sync(imx_phy->edev, EXTCON_CHG_USB_CDP, false);
+		extcon_set_state_sync(imx_phy->edev, EXTCON_CHG_USB_SLOW, false);
+		imx_phy->chg_type = EXTCON_NONE;
+
+		INIT_WORK(&imx_phy->edev_work, imx8mq_phy_extcon_notify_worker);
+		imx_phy->edev_notifier.notifier_call = imx8mq_phy_extcon_notify;
+
+		ret = devm_extcon_register_notifier_all(dev, imx_phy->edev,
+							&imx_phy->edev_notifier);
+		if (ret)
+			dev_err(dev, "register extcon notifier failed\n");
 	}
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
@@ -479,19 +487,8 @@ static int imx8mq_usb_phy_probe(struct platform_device *pdev)
 	return PTR_ERR_OR_ZERO(phy_provider);
 }
 
-static int imx8mq_usb_phy_remove(struct platform_device *pdev)
-{
-	struct imx8mq_usb_phy *imx_phy = platform_get_drvdata(pdev);
-
-	if (device_property_present(&pdev->dev, "vbus-power-supply"))
-		power_supply_unreg_notifier(&imx_phy->chg_det_nb);
-
-	return 0;
-}
-
 static struct platform_driver imx8mq_usb_phy_driver = {
 	.probe	= imx8mq_usb_phy_probe,
-	.remove = imx8mq_usb_phy_remove,
 	.driver = {
 		.name	= "imx8mq-usb-phy",
 		.of_match_table	= imx8mq_usb_phy_of_match,
