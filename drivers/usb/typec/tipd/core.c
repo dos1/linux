@@ -112,6 +112,9 @@ struct tps6598x {
 	u16 pwr_status;
 	bool dp;
 	struct extcon_dev *extcon;
+	struct extcon_dev *edev;
+	struct notifier_block edev_notifier;
+	struct work_struct edev_work;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dev_dentry;
 	struct dentry *customer_user_dentry;
@@ -127,6 +130,9 @@ static enum power_supply_property tps6598x_psy_props[] = {
 };
 
 static enum power_supply_usb_type tps6598x_psy_usb_types[] = {
+	POWER_SUPPLY_USB_TYPE_SDP,
+	POWER_SUPPLY_USB_TYPE_DCP,
+	POWER_SUPPLY_USB_TYPE_CDP,
 	POWER_SUPPLY_USB_TYPE_C,
 	POWER_SUPPLY_USB_TYPE_PD,
 };
@@ -377,6 +383,7 @@ static int tps6598x_connect(struct tps6598x *tps, u32 status)
 		typec_set_orientation(tps->port, TYPEC_ORIENTATION_REVERSE);
 	else
 		typec_set_orientation(tps->port, TYPEC_ORIENTATION_NORMAL);
+	extcon_set_state_sync(tps->edev, EXTCON_USB, true);
 	tps6598x_set_data_role(tps, TPS_STATUS_TO_TYPEC_DATAROLE(status), true);
 
 	tps->partner = typec_register_partner(tps->port, &desc);
@@ -421,6 +428,7 @@ static void tps6598x_disconnect(struct tps6598x *tps, u32 status)
 	typec_set_vconn_role(tps->port, TPS_STATUS_TO_TYPEC_VCONN(status));
 	typec_set_orientation(tps->port, TYPEC_ORIENTATION_NONE);
 	tps6598x_set_data_role(tps, TPS_STATUS_TO_TYPEC_DATAROLE(status), false);
+	extcon_set_state_sync(tps->edev, EXTCON_USB, false);
 
 	memset(&tps->terms, 0, sizeof(struct tps6598x_pdo));
 
@@ -862,7 +870,12 @@ static int tps6598x_psy_get_max_current(struct tps6598x *tps,
 		break;
 	default:
 	case TYPEC_PWR_MODE_USB:
-		val->intval = TPS_USB_500mA;
+		if (extcon_get_state(tps->edev, EXTCON_CHG_USB_DCP) > 0)
+			val->intval = TPS_TYPEC_1500mA;
+		else if (extcon_get_state(tps->edev, EXTCON_CHG_USB_CDP) > 0)
+			val->intval = TPS_TYPEC_1500mA;
+		else
+			val->intval = TPS_USB_500mA;
 	}
 	return 0;
 }
@@ -891,14 +904,23 @@ static int tps6598x_psy_get_prop(struct power_supply *psy,
 				 union power_supply_propval *val)
 {
 	struct tps6598x *tps = power_supply_get_drvdata(psy);
+	enum typec_pwr_opmode mode = TPS_POWER_STATUS_PWROPMODE(tps->pwr_status);
 	int ret = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_USB_TYPE:
-		if (TPS_POWER_STATUS_PWROPMODE(tps->pwr_status) == TYPEC_PWR_MODE_PD)
+		if (mode == TYPEC_PWR_MODE_PD)
 			val->intval = POWER_SUPPLY_USB_TYPE_PD;
-		else
+		else if (mode == TYPEC_PWR_MODE_1_5A || mode == TYPEC_PWR_MODE_3_0A)
 			val->intval = POWER_SUPPLY_USB_TYPE_C;
+		else if (extcon_get_state(tps->edev, EXTCON_CHG_USB_DCP) > 0)
+			val->intval = POWER_SUPPLY_USB_TYPE_DCP;
+		else if (extcon_get_state(tps->edev, EXTCON_CHG_USB_CDP) > 0)
+			val->intval = POWER_SUPPLY_USB_TYPE_CDP;
+		else if (extcon_get_state(tps->edev, EXTCON_CHG_USB_SDP) > 0)
+			val->intval = POWER_SUPPLY_USB_TYPE_SDP;
+		else
+			return -ENODATA;
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = tps6598x_psy_get_online(tps, val);
@@ -979,6 +1001,22 @@ static const unsigned int tps6598x_extcon_cable[] = {
 	EXTCON_DISP_DP,
 	EXTCON_NONE,
 };
+
+static void tps6598x_extcon_notify_worker(struct work_struct *work)
+{
+	struct tps6598x *tps =
+		container_of(work, struct tps6598x, edev_work);
+	power_supply_changed(tps->psy);
+}
+
+static int tps6598x_extcon_notify(struct notifier_block *nb,
+				  unsigned long event, void *param)
+{
+	struct tps6598x *tps =
+		container_of(nb, struct tps6598x, edev_notifier);
+	schedule_work(&tps->edev_work);
+	return NOTIFY_OK;
+}
 
 static int tps6598x_probe(struct i2c_client *client)
 {
@@ -1135,6 +1173,19 @@ static int tps6598x_probe(struct i2c_client *client)
 
 	/* set initial state */
 	extcon_set_state_sync(tps->extcon, EXTCON_DISP_DP, false);
+
+	tps->edev = extcon_get_edev_by_phandle(tps->dev, 0);
+	extcon_set_state_sync(tps->edev, EXTCON_USB, false);
+
+	if (!IS_ERR(tps->edev)) {
+		INIT_WORK(&tps->edev_work, tps6598x_extcon_notify_worker);
+		tps->edev_notifier.notifier_call = tps6598x_extcon_notify;
+
+		ret = devm_extcon_register_notifier_all(tps->dev, tps->edev,
+							&tps->edev_notifier);
+		if (ret)
+			dev_err(tps->dev, "register extcon notifier failed\n");
+	}
 
 	if (status & TPS_STATUS_PLUG_PRESENT) {
 		ret = tps6598x_read16(tps, TPS_REG_POWER_STATUS, &tps->pwr_status);
