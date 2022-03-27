@@ -914,16 +914,17 @@ static void bq25890_external_power_changed(struct power_supply *psy)
 			dev_err(bq->dev, "Max_current out of range: %d\n", max_current);
 			max_current = 500;
 		}
-		dev_dbg(bq->dev, "Setting max current to %dmA\n", max_current);
-		ret = bq25890_field_write(bq, F_IILIM, (max_current-100)/50);
-		if (ret < 0)
-			dev_err(bq->dev, "Failed to set IILIM: %d\n", ret);
 	} else {
 		if (!power_supply_get_property(psy_supply, POWER_SUPPLY_PROP_PRESENT, &val))
 			bq25890_set_otg(bq, val.intval);
 		else
 			dev_err(bq->dev, "Failed to get supply present\n");
 	}
+
+	dev_dbg(bq->dev, "Setting max current to %dmA\n", max_current);
+	ret = bq25890_field_write(bq, F_IILIM, (max_current-100)/50);
+	if (ret < 0)
+		dev_err(bq->dev, "Failed to set IILIM: %d\n", ret);
 
 	power_supply_changed(bq->charger);
 }
