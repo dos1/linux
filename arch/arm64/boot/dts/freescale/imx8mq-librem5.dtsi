@@ -1693,7 +1693,6 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	dr_mode = "otg";
-	snps,dis_u3_susphy_quirk;
 	hnp-disable;
 	srp-disable;
 	adp-disable;
