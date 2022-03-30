@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -43,11 +27,18 @@
 #endif
 
 /*
+ * Provide this interval for enhanced max psp
+ */
+u16 rx_data_inactive_interval;
+module_param(rx_data_inactive_interval, ushort, S_IRUGO);
+MODULE_PARM_DESC(rx_data_inactive_interval, "\nRx data inactivity interval\n");
+
+/*
  * 0 - UULP_GPIO_3
  * 1 - UULP_GPIO_0
 */
 bool sleep_ind_gpio_sel = 1;
-module_param(sleep_ind_gpio_sel, bool, 0);
+module_param(sleep_ind_gpio_sel, bool, S_IRUGO);
 MODULE_PARM_DESC(sleep_ind_gpio_sel, "\nSleep indication from device\n\
 0 - UULP_GPIO_3\n\
 1 - UULP_GPIO_0\n");
@@ -59,8 +50,8 @@ MODULE_PARM_DESC(sleep_ind_gpio_sel, "\nSleep indication from device\n\
  */
 u8 ulp_gpio_read = 0xff;
 u8 ulp_gpio_write = 0xff;
-module_param(ulp_gpio_read, byte, 0);
-module_param(ulp_gpio_write, byte, 0);
+module_param(ulp_gpio_read, byte, S_IRUGO);
+module_param(ulp_gpio_write, byte, S_IRUGO);
 MODULE_PARM_DESC(ulp_gpio_read, "\nProvide input gpio\n");
 MODULE_PARM_DESC(ulp_gpio_write, "\nProvide output gpio\n");
 
@@ -80,8 +71,11 @@ u8 ulp_handshake_mode = PACKET_HAND_SHAKE;
  * Sleep type ULP or LP
  * ULP = 2, LP = 1
  */
-u8 redpine_ps_sleep_type = 1;
+u8 redpine_ps_sleep_type;
 EXPORT_SYMBOL_GPL(redpine_ps_sleep_type);
+module_param(redpine_ps_sleep_type, byte, 0660);
+MODULE_PARM_DESC(redpine_ps_sleep_type, "\nPower save type. '1' for  LP and '2' for ULP\n");
+
 u16 peer_dist;
 u16 bt_feature_bitmap;
 u16 uart_debug;
@@ -166,13 +160,14 @@ bool enabled_uapsd;
  * 1 - Enable
  */
 u8 max_sp_len;
-module_param(max_sp_len, byte, 0);
+module_param(max_sp_len, byte, S_IRUGO);
 MODULE_PARM_DESC(max_sp_len, "\n0 -All buffered packets will be delivered\n\
 1 -Two buffered packets will be delivered\n\
 2 -Four buffered packets will be delivered\n\
 3 -Six buffered packets will be delivered\n");
 
 u8 driver_mode_value = 1;
+u8 ipps_valid_value  = 0;
 
 /*
  * Enable support of 40MHZ in 2.4GHZ
@@ -181,92 +176,90 @@ u8 driver_mode_value = 1;
 */
 bool enable_40mhz_in_2g;
 
-module_param(bt_rf_type, byte, 0);
-module_param(ble_tx_pwr_inx, byte, 0);
-module_param(ble_pwr_save_options, byte, 0);
-module_param(bt_rf_tx_power_mode, byte, 0);
-module_param(bt_rf_rx_power_mode, byte, 0);
+module_param(bt_rf_type, byte, S_IRUGO);
+module_param(ble_tx_pwr_inx, byte, S_IRUGO);
+module_param(ble_pwr_save_options, byte, S_IRUGO);
+module_param(bt_rf_tx_power_mode, byte, S_IRUGO);
+module_param(bt_rf_rx_power_mode, byte, S_IRUGO);
 
-module_param(lp_handshake_mode, byte, 0);
-module_param(enabled_uapsd, bool, 0);
+module_param(lp_handshake_mode, byte, S_IRUGO);
+module_param(enabled_uapsd, bool, S_IRUGO);
+ 
+MODULE_PARM_DESC(enabled_uapsd, "\n0 - Disable UAPSD, 1 - Enable UAPSD\n");
+MODULE_PARM_DESC(lp_handshake_mode, "\n0 - No handshake, 1 - GPIO handshake\n");
+ 
+module_param(ulp_handshake_mode, byte, S_IRUGO);
+MODULE_PARM_DESC(ulp_handshake_mode, "\n0 - No handshake, 1 - GPIO based, 2 - Pkt based\n");
 
-MODULE_PARM_DESC(enabled_uapsd,
-		 "\n0 - Disable UAPSD, 1 - Enable UAPSD\n");
-MODULE_PARM_DESC(lp_handshake_mode,
-		 "\n0 - No handshake, 1 - GPIO handshake\n");
-
-module_param(ulp_handshake_mode, byte, 0);
-MODULE_PARM_DESC(ulp_handshake_mode,
-		 "\n0 - No handshake, 1 - GPIO based, 2 - Pkt based\n");
-
-module_param(redpine_ps_sleep_type, byte, 0660);
-MODULE_PARM_DESC(redpine_ps_sleep_type,
-		 "\nPower save type. '1' for  LP and '2' for ULP\n");
-
-module_param(peer_dist, ushort, 0);
+module_param(peer_dist, ushort, S_IRUGO);
 MODULE_PARM_DESC(peer_dist, "\npeer distance to config ack timeout value\n");
 
-module_param(bt_feature_bitmap, ushort, 0);
+module_param(bt_feature_bitmap, ushort, S_IRUGO);
 MODULE_PARM_DESC(bt_feature_bitmap, "\nFeature bitmap for BT\n");
 
-module_param(uart_debug, ushort, 0);
+module_param(uart_debug, ushort, S_IRUGO);
 MODULE_PARM_DESC(uart_debug, "\nFeature bitmap for uart debug\n");
 
-module_param(ext_opt, ushort, 0);
+module_param(ext_opt, ushort, S_IRUGO);
 MODULE_PARM_DESC(ext_opt, "\nExtended options - TBD\n");
 
-module_param(ble_roles, ushort, 0);
+module_param(ble_roles, ushort, S_IRUGO);
 MODULE_PARM_DESC(ble_roles, "\nBle Supported Roles BIT[3:0] Max Num of the \
 Central Connections BIT[7:4] Max Num of the Peripheral Connections\n");
 
-module_param(bt_bdr_mode, ushort, 0);
+module_param(bt_bdr_mode, ushort, S_IRUGO);
 MODULE_PARM_DESC(bt_bdr_mode, "\nBDR mode selection in classic. BIT(0) 0:BDR \
 and EDR , 1:BDR only mode, BIT(1) 0:BDR HP Chain, 1:BDR LP chain\n");
 
-module_param(three_wire_coex, bool, 0);
+module_param(three_wire_coex, bool, S_IRUGO);
 MODULE_PARM_DESC(three_wire_coex, "\nThree wire coex selection. 0:Disable, \
 1:Enable\n");
 
-module_param(anchor_point_gap, ushort, 0);
+module_param(anchor_point_gap, ushort, S_IRUGO);
 MODULE_PARM_DESC(anchor_point_gap, "\nUser configurability of Anchor Point \
 gap between connected slaves\n");
 
-module_param(host_intf_on_demand, bool, 0);
+module_param(host_intf_on_demand, bool, S_IRUGO);
 MODULE_PARM_DESC(host_intf_on_demand, "\nHost Interface on Demand Feature (0) \
 Disable Host Interface on Demand Feature (1) Enable Host Interface on Demand \
 Feature\n");
 
-module_param(sleep_clk_source_sel, byte, 0);
+module_param(sleep_clk_source_sel, byte, S_IRUGO);
 MODULE_PARM_DESC(sleep_clk_source_sel, "\nSleep clock selection\n\
 0 - Use RC clock as sleep clock\n\
 1 - Use 32KHz clock from external XTAL OSCILLATOR\n\
 2 - Use 32KHz bypass clock on UULP_GPIO_3\n\
 3 - Use 32KHz bypass clock on UULP_GPIO_4\n\n");
 
-module_param(antenna_diversity, bool, 0);
+module_param(antenna_diversity, bool, S_IRUGO);
 MODULE_PARM_DESC(antenna_diversity, "\n Anetanna diversity selection(Only for \
 STA mode).\n '0' for disable and '1' for enable\n");
 
-module_param(antenna_sel, byte, 0);
+module_param(antenna_sel, byte, S_IRUGO);
 MODULE_PARM_DESC(antenna_sel, "\n Antenna selection. '2' for  intenal antenna \
 and '3' for External antenna\n");
 
-module_param(wlan_rf_power_mode, byte, 0);
+module_param(wlan_rf_power_mode, byte, S_IRUGO);
 MODULE_PARM_DESC(wlan_rf_power_mode, "\n TX/RX power high: 0x00 medium: 0x11 \
 low: 0x22\n");
 
-module_param(feature_bitmap_9116, ushort, 0);
+module_param(feature_bitmap_9116, ushort, S_IRUGO);
 MODULE_PARM_DESC(feature_bitmap_9116, "\n9116 Feature Bitmap BIT(0) 0: AGC_PD \
 Enable, 1: AGC_PD Disable BIT(7:1) Reserved\n");
 
-module_param(lmac_bcon_drop, bool, 0);
-module_param(standby_assoc_chain_sel, bool, 0);
-module_param(pwr_save_opt, ushort, 0);
-module_param(driver_mode_value, byte, 0);
-module_param(enable_40mhz_in_2g, bool, 0);
+module_param(lmac_bcon_drop, bool, S_IRUGO);
+module_param(standby_assoc_chain_sel, bool, S_IRUGO);
+module_param(pwr_save_opt, ushort, S_IRUGO);
+module_param(ipps_valid_value, byte, S_IRUGO);
+module_param(driver_mode_value, byte, S_IRUGO);
+module_param(enable_40mhz_in_2g, bool, S_IRUGO);
 MODULE_PARM_DESC(enable_40mhz_in_2g, "\nSupport of 40Mhz in 2.4Gh\n\
 '1' - Enable.\n'0' - Disable\n");
 
+u8 xtal_good_time;
+module_param(xtal_good_time, byte, S_IRUGO);
+MODULE_PARM_DESC(xtal_good_time, "\nCrystal good time value in Micro-Second\n\
+'0' - 1000 \n'1' - 2000 \n'2' - 3000 \n'3' - 600\n");
 
 u16 rsi_zone_enabled = ERR_ZONE;
 module_param(rsi_zone_enabled, ushort, S_IRUGO);
@@ -384,6 +377,8 @@ static char *opmode_str(int oper_mode)
 	       return "Wi-Fi STA + BT DUAL";
 	case DEV_OPMODE_AP_BT:
 	       return "Wi-Fi AP + BT EDR";
+    case DEV_OPMODE_AP_BT_LE:
+      return "Wi-Fi AP + BT LE";
 	case DEV_OPMODE_AP_BT_DUAL:
 	       return "Wi-Fi AP + BT DUAL";
 	case DEV_OPMODE_ZB_ALONE:
@@ -407,14 +402,14 @@ void rsi_print_version(struct rsi_common *common)
 	redpine_dbg(ERR_ZONE, "================================================\n");
 	redpine_dbg(ERR_ZONE, "================ RSI Version Info ==============\n");
 	redpine_dbg(ERR_ZONE, "================================================\n");
-	if (adapter->device_model == RSI_DEV_9116) {
+	if (DEV_MODEL_9116) {
 		redpine_dbg(ERR_ZONE, "FW Version\t: %d.%d.%d.%d\n",
 			common->lmac_ver.major, common->lmac_ver.minor,
 			common->lmac_ver.release_num,common->lmac_ver.patch_num);
-		redpine_dbg(ERR_ZONE, "RSI FW Version\t:  %04x.%x.%x.%x.%04x\n",
+		redpine_dbg(ERR_ZONE, "RSI FW Version\t:  %04x.%d.%d.%d.%d\n",
 			common->lmac_ver.chip_id, common->lmac_ver.major,
-			common->lmac_ver.minor, common->lmac_ver.customer_id,
-			common->lmac_ver.build_id);
+			common->lmac_ver.minor, common->lmac_ver.patch_id,
+			common->lmac_ver.customer_id);
 	} else {
 		redpine_dbg(ERR_ZONE, "FW Version\t: %d.%d.%d\n",
 			common->lmac_ver.major, common->lmac_ver.minor,
@@ -436,10 +431,7 @@ void rsi_print_version(struct rsi_common *common)
  *
  * Return: Successfully skb.
  */
-static struct sk_buff *rsi_prepare_skb(struct rsi_common *common,
-				       u8 *buffer,
-				       u32 pkt_len,
-				       u8 extended_desc)
+static struct sk_buff *rsi_prepare_skb(struct rsi_common *common, u8 *buffer, u32 pkt_len, u8 extended_desc)
 {
 	struct ieee80211_tx_info *info;
 	struct skb_info *rx_params;
@@ -486,9 +478,15 @@ int redpine_read_pkt(struct rsi_common *common, u8 *rx_pkt, s32 rcv_pkt_len)
 	u32 index = 0, length = 0, queueno = 0;
 	u16 actual_length = 0, offset;
 	struct sk_buff *skb = NULL;
+  struct rsi_hw *adapter = common->priv;
 #if defined(CONFIG_REDPINE_COEX_MODE) && defined(CONFIG_REDPINE_ZIGB)
 	struct rsi_mod_ops *zb_ops = g_proto_ops.zb_ops;
 	u8 zb_pkt_type;
+#endif
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_vif *vif = adapter->vifs[adapter->sc_nvifs - 1];
+#else
+  struct ieee80211_vif *vif = rsi_get_sta_vif(common->priv);
 #endif
 
 	do {
@@ -525,17 +523,15 @@ int redpine_read_pkt(struct rsi_common *common, u8 *rx_pkt, s32 rcv_pkt_len)
 #endif
 			break;
 		case RSI_WIFI_DATA_Q:
-			rsi_hex_dump(DATA_RX_ZONE,
-				     "RX Data pkt",
-				     frame_desc + offset,
-				     FRAME_DESC_SZ + length);
-			skb = rsi_prepare_skb(common,
-					      (frame_desc + offset),
-					      length,
-					      extended_desc);
+        rsi_hex_dump(DATA_RX_ZONE, "RX Data pkt", frame_desc + offset, FRAME_DESC_SZ + length);
+        skb = rsi_prepare_skb(common, (frame_desc + offset), length, extended_desc);
 			if (!skb)
 				goto fail;
 
+        if (vif && (adapter->user_ps_en) && (adapter->ps_info.monitor_interval || common->disable_ps_from_lmac)
+            && (vif->type == NL80211_IFTYPE_STATION)) {
+          check_traffic_pwr_save(adapter);
+        }
 			rsi_indicate_pkt_to_os(common, skb);
 			break;
 
@@ -729,10 +725,8 @@ struct rsi_hw *redpine_91x_init(void)
 #ifdef CONFIG_REDPINE_COEX_MODE
 	init_waitqueue_head(&common->techs[BT_ZB_ID].tx_access_event);
 #endif
-	common->scan_workqueue =
-		create_singlethread_workqueue("rsi_scan_worker");
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 20, 17)
-	rsi_init_event(&common->chan_set_event);
+  common->scan_workqueue = create_singlethread_workqueue("rsi_scan_worker");
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 20, 17) || defined(OFFLOAD_SCAN_TO_DEVICE)
 	rsi_init_event(&common->probe_cfm_event);
 	rsi_init_event(&common->chan_change_event);
 #ifndef CONFIG_REDPINE_P2P
@@ -800,6 +794,7 @@ struct rsi_hw *redpine_91x_init(void)
 	common->enable_40mhz_in_2g = enable_40mhz_in_2g;
 	common->enabled_uapsd = enabled_uapsd;
 	common->max_sp_len = max_sp_len;
+  common->rx_data_inactive_interval = rx_data_inactive_interval;
 
 	if (rsi_create_kthread(common,
 			       &common->tx_thread,
@@ -833,8 +828,16 @@ struct rsi_hw *redpine_91x_init(void)
 	timer_setup(&common->roc_timer, rsi_roc_timeout, 0);
 #endif
 	init_completion(&common->wlan_init_completion);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 20, 17) || defined(OFFLOAD_SCAN_TO_DEVICE)
+  rsi_init_event(&common->chan_set_event);
+#else
+  if (common->driver_mode == RF_EVAL_MODE_ON)
+    rsi_init_event(&common->chan_set_event);
+#endif
 
 	common->init_done = true;
+  if (nl_sk_init(adapter))
+    redpine_dbg(ERR_ZONE, "%s: nl socket init failed\n", __func__);
 	return adapter;
 
 err:
@@ -883,6 +886,8 @@ void redpine_91x_deinit(struct rsi_hw *adapter)
 	DRV_INSTANCE_SET(adapter->drv_instance_index, 0);
 #endif
 	common->init_done = false;
+  nl_sk_exit(adapter->nl_sk);
+
 #if defined(CONFIG_ARCH_HAVE_CUSTOM_GPIO_H)
 	if (common->ulp_ps_handshake_mode == GPIO_HAND_SHAKE)
 		redpine_gpio_deinit(common);

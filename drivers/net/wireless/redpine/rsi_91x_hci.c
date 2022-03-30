@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include "rsi_hci.h"
 #include "rsi_mgmt.h"
@@ -224,9 +208,7 @@ int rsi_send_rfmode_frame(struct rsi_common *common)
 
 	skb_put(skb, sizeof(struct rsi_bt_rfmode_frame));
 
-	status = common->priv->host_intf_ops->write_pkt(common->priv,
-							skb->data,
-							skb->len);
+  status = common->priv->host_intf_ops->write_pkt(common->priv, skb->data, skb->len);
 	dev_kfree_skb(skb);
 	return status;
 }
@@ -262,6 +244,112 @@ int rsi_deregister_bt(struct rsi_common *common)
 }
 EXPORT_SYMBOL_GPL(rsi_deregister_bt);
 
+int rsi_bt_e2e_stats(struct rsi_hw *adapter, struct nlmsghdr *nlh, int payload_len, u16 cmd)
+{
+  struct rsi_common *common = adapter->priv;
+  struct sk_buff *skb;
+  struct rsi_hci_adapter *h_adapter = (struct rsi_hci_adapter *)common->hci_adapter;
+
+  if (h_adapter->priv->bt_fsm_state != BT_DEVICE_READY) {
+    redpine_dbg(ERR_ZONE, "BT Device not ready\n");
+    return -ENODEV;
+  }
+  redpine_dbg(MGMT_TX_ZONE, "%s: <==== Sending BT_E2E_STATS frame ====>\n", __func__);
+
+  skb = dev_alloc_skb(payload_len);
+  if (!skb)
+    return -ENOMEM;
+
+  memset(skb->data, 0, payload_len);
+  memcpy(skb->data, nlmsg_data(nlh) + FRAME_DESC_SZ, payload_len);
+  skb_put(skb, payload_len);
+  bt_cb(skb)->pkt_type = cpu_to_le16(cmd);
+  rsi_hex_dump(MGMT_TX_ZONE, "BT E2E STATS ", skb->data, skb->len);
+
+#ifdef CONFIG_REDPINE_COEX_MODE
+  rsi_coex_send_pkt(common, skb, BT_Q);
+#else
+  rsi_send_bt_pkt(common, skb);
+#endif
+  return 0;
+}
+
+int rsi_process_rx_bt_e2e_stats(struct rsi_common *common, bt_stats_t bt_stats)
+{
+  struct sk_buff *skb_out = NULL;
+  struct nlmsghdr *nlh    = NULL;
+  int msg_size, res;
+  struct rsi_hw *adapter = common->priv;
+  msg_size               = sizeof(bt_stats_t);
+  skb_out                = nlmsg_new(msg_size, 0);
+  if (!skb_out) {
+    redpine_dbg(ERR_ZONE, "%s: Failed to allocate skb\n", __func__);
+    return -1;
+  }
+  nlh = nlmsg_put(skb_out, adapter->bt_nl_pid, 0, NLMSG_DONE, msg_size, 0);
+  memcpy(nlmsg_data(nlh), &bt_stats, msg_size);
+  redpine_dbg(MGMT_RX_ZONE, "<==== Sending BT E2E STATS to Application ====>\n");
+  res = nlmsg_unicast(adapter->nl_sk, skb_out, adapter->bt_nl_pid);
+  if (res < 0) {
+    redpine_dbg(ERR_ZONE, "%s: Failed to send BT E2E stats to Application\n", __func__);
+    return -1;
+  }
+  return 0;
+}
+
+int rsi_bt_ble_update_gain_table(struct rsi_hw *adapter, struct nlmsghdr *nlh, int payload_len, u16 cmd)
+{
+  struct rsi_common *common = adapter->priv;
+  struct sk_buff *skb;
+  struct rsi_hci_adapter *h_adapter = (struct rsi_hci_adapter *)common->hci_adapter;
+
+  if (h_adapter->priv->bt_fsm_state != BT_DEVICE_READY) {
+    redpine_dbg(ERR_ZONE, "BT Device not ready\n");
+    return -ENODEV;
+  }
+  redpine_dbg(MGMT_TX_ZONE, "%s: <==== Sending BT_BLE_GAIN_TABLE frame ====>\n", __func__);
+
+  skb = dev_alloc_skb(payload_len);
+  if (!skb)
+    return -ENOMEM;
+
+  memset(skb->data, 0, payload_len);
+  memcpy(skb->data, nlmsg_data(nlh) + FRAME_DESC_SZ, payload_len);
+  skb_put(skb, payload_len);
+  bt_cb(skb)->pkt_type = cpu_to_le16(cmd);
+  rsi_hex_dump(MGMT_TX_ZONE, "BT/BLE GAIN TABLE UPDATE ", skb->data, skb->len);
+
+#ifdef CONFIG_REDPINE_COEX_MODE
+  rsi_coex_send_pkt(common, skb, BT_Q);
+#else
+  rsi_send_bt_pkt(common, skb);
+#endif
+  return 0;
+}
+
+int rsi_process_rx_bt_ble_gain_table_update(struct rsi_common *common, unsigned short status)
+{
+  struct sk_buff *skb_out = NULL;
+  struct nlmsghdr *nlh    = NULL;
+  int msg_size, res;
+  struct rsi_hw *adapter = common->priv;
+  msg_size               = sizeof(status);
+  skb_out                = nlmsg_new(msg_size, 0);
+  if (!skb_out) {
+    redpine_dbg(ERR_ZONE, "%s: Failed to allocate skb\n", __func__);
+    return -1;
+  }
+  nlh = nlmsg_put(skb_out, adapter->bt_nl_pid, 0, NLMSG_DONE, msg_size, 0);
+  memcpy(nlmsg_data(nlh), (unsigned char *)&status, msg_size);
+  redpine_dbg(MGMT_RX_ZONE, "<==== Sending BT/BLE GAIN TABLE UPDATE STATUS to Application ====>\n");
+  res = nlmsg_unicast(adapter->nl_sk, skb_out, adapter->bt_nl_pid);
+  if (res < 0) {
+    redpine_dbg(ERR_ZONE, "%s: Failed to send BT/LE GAIN TABLE UPDATE STATUS to Application\n", __func__);
+    return -1;
+  }
+  return 0;
+}
+
 int rsi_hci_recv_pkt(struct rsi_common *common, u8 *pkt)
 {
 	struct rsi_hci_adapter *h_adapter =
@@ -270,6 +358,8 @@ int rsi_hci_recv_pkt(struct rsi_common *common, u8 *pkt)
 	struct hci_dev *hdev = NULL;
 	int pkt_len = rsi_get_length(pkt, 0);
 	u8 queue_no = rsi_get_queueno(pkt, 0);
+  bt_stats_t bt_stats;
+  char status;
 
 	if ((common->bt_fsm_state == BT_DEVICE_NOT_READY) &&
 	    (pkt[14] == BT_CARD_READY_IND)) {
@@ -313,6 +403,18 @@ int rsi_hci_recv_pkt(struct rsi_common *common, u8 *pkt)
 		case BT_CW:
 			redpine_dbg(MGMT_RX_ZONE, "BT CW\n");
 			return 0;
+      case BT_E2E_STAT:
+        redpine_dbg(MGMT_RX_ZONE, " Received BT E2E STATS confirm from LMAC\n");
+        memcpy(&bt_stats, pkt + FRAME_DESC_SZ, sizeof(bt_stats_t));
+        rsi_hex_dump(MGMT_RX_ZONE, "BT E2E STATS From LMAC", (char *)&bt_stats, sizeof(bt_stats_t));
+        rsi_process_rx_bt_e2e_stats(common, bt_stats);
+        return 0;
+      case BT_BLE_GAIN_TABLE:
+        redpine_dbg(MGMT_RX_ZONE, " Received BT/BLE GAIN TABLE UPDATE confirm from LMAC\n");
+        memcpy((char *)&status, pkt + FRAME_DESC_SZ, sizeof(status));
+        rsi_hex_dump(MGMT_RX_ZONE, "BT/BLE GAIN TABLE UPDATE confirm From LMAC", (char *)&status, sizeof(status));
+        rsi_process_rx_bt_ble_gain_table_update(common, status);
+        return 0;
 		default:
 			break;
 		}
@@ -445,8 +547,7 @@ EXPORT_SYMBOL_GPL(rsi_hci_attach);
  */
 void rsi_hci_detach(struct rsi_common *common)
 {
-	struct rsi_hci_adapter *h_adapter = 
-		(struct rsi_hci_adapter *)common->hci_adapter;
+  struct rsi_hci_adapter *h_adapter = (struct rsi_hci_adapter *)common->hci_adapter;
 	struct hci_dev *hdev;
 
 	redpine_dbg(INFO_ZONE, "Detaching HCI...\n");
@@ -471,4 +572,3 @@ void rsi_hci_detach(struct rsi_common *common)
 	return;
 }
 EXPORT_SYMBOL_GPL(rsi_hci_detach);
-

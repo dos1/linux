@@ -40,6 +40,7 @@
 #include <linux/mmc/sdio_ids.h>
 #include "rsi_main.h"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 /* SDIO VENDOR ID for RSI*/
 #ifndef SDIO_VENDOR_ID_RSI
 #define SDIO_VENDOR_ID_RSI              0x041B
@@ -53,16 +54,17 @@
 #ifndef SDIO_DEVICE_ID_RSI_9116
 #define SDIO_DEVICE_ID_RSI_9116         0x9116
 #endif
+#endif
+
+#define RSI_DEVICE_BUFFER_STATUS_REGISTER 0xf3
+#define RSI_FN1_INT_REGISTER		0xf9
+#define SD_REQUEST_MASTER		0x10000
 
 /* Interrupt Bit Related Macros */
 #define PKT_BUFF_AVAILABLE		1
 #define FW_ASSERT_IND			2
 
 #define RSI_MASTER_REG_BUF_SIZE		12
-
-#define RSI_DEVICE_BUFFER_STATUS_REGISTER 0xf3
-#define RSI_FN1_INT_REGISTER		0xf9
-#define SD_REQUEST_MASTER		0x10000
 
 /* FOR SD CARD ONLY */
 #define SDIO_RX_NUM_BLOCKS_REG		0x000F1
@@ -83,16 +85,12 @@
 #define TA_RELEASE_THREAD_REG		0x0848
 #define TA_POLL_BREAK_STATUS_REG	0x085C
 
-
 #define RSI_GET_SDIO_INTERRUPT_TYPE(_I, TYPE)      \
 	{					   \
-		TYPE =                             \
-		(_I & (1 << PKT_BUFF_AVAILABLE)) ? \
-		BUFFER_AVAILABLE :		   \
-		(_I & (1 << MSDU_PKT_PENDING)) ?   \
-		MSDU_PACKET_PENDING :              \
-		(_I & (1 << FW_ASSERT_IND)) ?      \
-		FIRMWARE_ASSERT_IND : UNKNOWN_INT; \
+    TYPE = (_I & (1 << PKT_BUFF_AVAILABLE))                                                                      \
+             ? BUFFER_AVAILABLE                                                                                  \
+             : (_I & (1 << MSDU_PKT_PENDING)) ? MSDU_PACKET_PENDING                                              \
+                                              : (_I & (1 << FW_ASSERT_IND)) ? FIRMWARE_ASSERT_IND : UNKNOWN_INT; \
 	}
 
 /* common registers in SDIO function1 */
@@ -118,7 +116,7 @@ enum sdio_interrupt_type {
 	UNKNOWN_INT		= 0XE
 };
 
-struct receive_info {
+struct sdio_receive_info {
 	bool buffer_full;
 	bool semi_buffer_full;
 	bool mgmt_buffer_full;
@@ -142,7 +140,7 @@ struct rsi_sdio_rx_q {
 struct rsi_91x_sdiodev {
 	struct sdio_func *pfunction;
 	struct task_struct *sdio_irq_task;
-	struct receive_info rx_info;
+  struct sdio_receive_info rx_info;
 	u32 next_read_delay;
 	u32 sdio_high_speed_enable;
 	u8 sdio_clock_speed;
@@ -161,25 +159,19 @@ void rsi_interrupt_handler(struct rsi_hw *adapter);
 int rsi_init_sdio_slave_regs(struct rsi_hw *adapter);
 int rsi_sdio_device_init(struct rsi_common *common);
 int rsi_sdio_read_register(struct rsi_hw *adapter, u32 addr, u8 *data);
-int rsi_sdio_write_register(struct rsi_hw *adapter, u8 function,
-			    u32 addr, u8 *data);
+int rsi_sdio_write_register(struct rsi_hw *adapter, u8 function, u32 addr, u8 *data);
 int rsi_sdio_host_intf_read_pkt(struct rsi_hw *adapter, u8 *pkt, u32 length);
 int rsi_sdio_host_intf_write_pkt(struct rsi_hw *adapter, u8 *pkt, u32 len);
-int rsi_sdio_read_register_multiple(struct rsi_hw *adapter, u32 addr,
-				    u8 *data, u16 count);
-int rsi_sdio_write_register_multiple(struct rsi_hw *adapter, u32 addr,
-				     u8 *data, u16 count);
-int rsi_sdio_master_access_msword(struct rsi_hw *adapter,
-				  u16 ms_word);
+int rsi_sdio_read_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count);
+int rsi_sdio_write_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count);
+int rsi_sdio_master_access_msword(struct rsi_hw *adapter, u16 ms_word);
 int rsi_sdio_load_data_master_write(struct rsi_hw *adapter,
-				    u32 base_address, u32 instructions_sz,
-				    u16 block_size, u8 *ta_firmware);
-int rsi_sdio_master_reg_read(struct rsi_hw *adapter, u32 addr,
-			     u32 *read_buf, u16 size);
-int rsi_sdio_master_reg_write(struct rsi_hw *adapter,
-			      unsigned long addr,
-			      unsigned long data,
-			      u16 size);
+                                    u32 base_address,
+                                    u32 instructions_sz,
+                                    u16 block_size,
+                                    u8 *ta_firmware);
+int rsi_sdio_master_reg_read(struct rsi_hw *adapter, u32 addr, u32 *read_buf, u16 size);
+int rsi_sdio_master_reg_write(struct rsi_hw *adapter, unsigned long addr, unsigned long data, u16 size);
 int rsi_sdio_reinit_device(struct rsi_hw *adapter);
 void rsi_sdio_ack_intr(struct rsi_hw *adapter, u8 int_bit);
 int rsi_sdio_determine_event_timeout(struct rsi_hw *adapter);

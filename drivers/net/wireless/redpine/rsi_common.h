@@ -37,7 +37,10 @@
 #define EVENT_WAIT_FOREVER              0
 #define QUEUE_NOT_FULL                  1
 #define QUEUE_FULL                      0
+#define E2E_MODE           1
+#define RF_EVAL_MODE_ON    2
 #define SNIFFER_MODE			7
+#define PER_MODE_EN        1
 
 static inline int rsi_init_event(struct rsi_event *pevent)
 {
@@ -51,12 +54,9 @@ static inline int rsi_wait_event(struct rsi_event *event, u32 timeout)
 	int status = 0;
 
 	if (!timeout)
-		status = wait_event_interruptible(event->event_queue,
-				(!atomic_read(&event->event_condition)));
+    status = wait_event_interruptible(event->event_queue, (!atomic_read(&event->event_condition)));
 	else
-		status = wait_event_interruptible_timeout(event->event_queue,
-				(!atomic_read(&event->event_condition)),
-				timeout);
+    status = wait_event_interruptible_timeout(event->event_queue, (!atomic_read(&event->event_condition)), timeout);
 	return status;
 }
 
@@ -71,10 +71,7 @@ static inline void rsi_reset_event(struct rsi_event *event)
 	atomic_set(&event->event_condition, 1);
 }
 
-static inline int rsi_create_kthread(struct rsi_common *common,
-				     struct rsi_thread *thread,
-				     void *func_ptr,
-				     u8 *name)
+static inline int rsi_create_kthread(struct rsi_common *common, struct rsi_thread *thread, void *func_ptr, u8 *name)
 {
 	init_completion(&thread->completion);
 	atomic_set(&thread->thread_done, 0);
@@ -95,13 +92,13 @@ static inline int rsi_kill_thread(struct rsi_thread *handle)
 	return kthread_stop(handle->task);
 }
 
-static inline struct sk_buff *rsi_get_aligned_skb(struct sk_buff *skb) {
+static inline struct sk_buff *rsi_get_aligned_skb(struct sk_buff *skb)
+{
 	u8 *skb_data = skb->data;
 	int skb_len = skb->len;
 
 	skb_push(skb, RSI_DMA_ALIGN);
-	skb_pull(skb, PTR_ALIGN(skb->data,
-				RSI_DMA_ALIGN) - skb->data);
+  skb_pull(skb, PTR_ALIGN(skb->data, RSI_DMA_ALIGN) - skb->data);
 	memmove(skb->data, skb_data, skb_len);
 	skb_trim(skb, skb_len);
 

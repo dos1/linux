@@ -40,6 +40,7 @@
 #define DEV_OPMODE_STA_BT_LE		9
 #define DEV_OPMODE_STA_BT_DUAL		13
 #define DEV_OPMODE_AP_BT		6
+#define DEV_OPMODE_AP_BT_LE       10
 #define DEV_OPMODE_AP_BT_DUAL		14
 #define DEV_OPMODE_ZB_ALONE		16
 #define DEV_OPMODE_STA_ZB		17
@@ -125,9 +126,8 @@
 
 /* Total RAM access commands from TA */
 #define MEM_ACCESS_CTRL_FROM_HOST  0x41300000
-#define RAM_384K_ACCESS_FROM_TA (BIT(2) | BIT(3) | BIT(4) | BIT(5) \
-				 | BIT(20) | BIT(21) | BIT(22) | BIT(23) \
-				 | BIT(24) | BIT(25))
+#define RAM_384K_ACCESS_FROM_TA \
+  (BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(20) | BIT(21) | BIT(22) | BIT(23) | BIT(24) | BIT(25))
 
 /* Boot loader commands */
 #define HOST_INTF_REG_OUT		0x4105003C
@@ -217,6 +217,9 @@
 #define NWP_WWD_RESET_BYPASS            (NWP_AHB_BASE_ADDR + 0x314)
 #define NWP_FSM_INTR_MASK_REG           (NWP_AHB_BASE_ADDR + 0x104)
 
+#define LP_POWER_SAVE  1
+#define ULP_POWER_SAVE 2
+
 struct bl_header {
 	__le32 flags;
 	__le32 image_no;
@@ -263,7 +266,11 @@ int redpine_hal_device_init(struct rsi_hw *adapter);
 int rsi_send_data_pkt(struct rsi_common *common, struct sk_buff *skb);
 int rsi_send_bt_pkt(struct rsi_common *common, struct sk_buff *skb);
 int rsi_send_zb_pkt(struct rsi_common *common, struct sk_buff *skb);
+#ifndef CONFIG_STA_PLUS_AP
 int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb);
+#else
+int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb, struct ieee80211_vif *vif);
+#endif
 int rsi_deregister_bt(struct rsi_common *common);
 int rsi_validate_oper_mode(u16 oper_mode);
 #ifdef CONFIG_REDPINE_MULTI_MODE

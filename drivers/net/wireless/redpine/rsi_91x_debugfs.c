@@ -1,32 +1,16 @@
-/**
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include "rsi_debugfs.h"
 #include "rsi_sdio.h"
@@ -46,32 +30,20 @@ static int rsi_sdio_stats_read(struct seq_file *seq, void *data)
 {
 	struct rsi_common *common = seq->private;
 	struct rsi_hw *adapter = common->priv;
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 
-	seq_printf(seq, "total_sdio_interrupts: %d\n",
-		   dev->rx_info.sdio_int_counter);
-	seq_printf(seq, "sdio_msdu_pending_intr_count: %d\n",
-		   dev->rx_info.total_sdio_msdu_pending_intr);
-	seq_printf(seq, "sdio_buff_full_count : %d\n",
-		   dev->rx_info.buf_full_counter);
-	seq_printf(seq, "sdio_buf_semi_full_count %d\n",
-		   dev->rx_info.buf_semi_full_counter);
-	seq_printf(seq, "sdio_unknown_intr_count: %d\n",
-		   dev->rx_info.total_sdio_unknown_intr);
+  seq_printf(seq, "total_sdio_interrupts: %d\n", dev->rx_info.sdio_int_counter);
+  seq_printf(seq, "sdio_msdu_pending_intr_count: %d\n", dev->rx_info.total_sdio_msdu_pending_intr);
+  seq_printf(seq, "sdio_buff_full_count : %d\n", dev->rx_info.buf_full_counter);
+  seq_printf(seq, "sdio_buf_semi_full_count %d\n", dev->rx_info.buf_semi_full_counter);
+  seq_printf(seq, "sdio_unknown_intr_count: %d\n", dev->rx_info.total_sdio_unknown_intr);
 	/* RX Path Stats */
-	seq_printf(seq, "BUFFER FULL STATUS  : %d\n",
-		   dev->rx_info.buffer_full);
-	seq_printf(seq, "SEMI BUFFER FULL STATUS  : %d\n",
-		   dev->rx_info.semi_buffer_full);
-	seq_printf(seq, "MGMT BUFFER FULL STATUS  : %d\n",
-		   dev->rx_info.mgmt_buffer_full);
-	seq_printf(seq, "BUFFER FULL COUNTER  : %d\n",
-		   dev->rx_info.buf_full_counter);
-	seq_printf(seq, "BUFFER SEMI FULL COUNTER  : %d\n",
-		   dev->rx_info.buf_semi_full_counter);
-	seq_printf(seq, "MGMT BUFFER FULL COUNTER  : %d\n",
-		   dev->rx_info.mgmt_buf_full_counter);
+  seq_printf(seq, "BUFFER FULL STATUS  : %d\n", dev->rx_info.buffer_full);
+  seq_printf(seq, "SEMI BUFFER FULL STATUS  : %d\n", dev->rx_info.semi_buffer_full);
+  seq_printf(seq, "MGMT BUFFER FULL STATUS  : %d\n", dev->rx_info.mgmt_buffer_full);
+  seq_printf(seq, "BUFFER FULL COUNTER  : %d\n", dev->rx_info.buf_full_counter);
+  seq_printf(seq, "BUFFER SEMI FULL COUNTER  : %d\n", dev->rx_info.buf_semi_full_counter);
+  seq_printf(seq, "MGMT BUFFER FULL COUNTER  : %d\n", dev->rx_info.mgmt_buf_full_counter);
 
 	return 0;
 }
@@ -84,8 +56,7 @@ static int rsi_sdio_stats_read(struct seq_file *seq, void *data)
  *
  * Return: Pointer to the opened file status: 0 on success, ENOMEM on failure.
  */
-static int rsi_sdio_stats_open(struct inode *inode,
-			       struct file *file)
+static int rsi_sdio_stats_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, rsi_sdio_stats_read, inode->i_private);
 }
@@ -102,14 +73,19 @@ static int rsi_version_read(struct seq_file *seq, void *data)
 	struct rsi_common *common = seq->private;
 	struct rsi_hw *adapter = common->priv;
 
-	if (adapter->device_model == RSI_DEV_9116) {
-		seq_printf(seq, "Driver : %s\nLMAC   : %04x.%x.%x.%x.%04x\n",
+  if (DEV_MODEL_9116) {
+    seq_printf(seq,
+               "Driver : %s\nLMAC   : %04x.%d.%d.%d.%d.%d\n",
 			common->driver_ver,
-			common->lmac_ver.chip_id, common->lmac_ver.major,
-			common->lmac_ver.minor, common->lmac_ver.customer_id,
+               common->lmac_ver.chip_id,
+               common->lmac_ver.major,
+               common->lmac_ver.minor,
+               common->lmac_ver.patch_id,
+               common->lmac_ver.customer_id,
 			common->lmac_ver.build_id);
 	} else {
-		seq_printf(seq, "Driver : %s\nLMAC   : %x.%x.%x\n",
+    seq_printf(seq,
+               "Driver : %s\nLMAC   : %d.%d.%d\n",
 			common->driver_ver,
 			common->lmac_ver.major,
 			common->lmac_ver.minor,
@@ -126,8 +102,7 @@ static int rsi_version_read(struct seq_file *seq, void *data)
  *
  * Return: Pointer to the opened file status: 0 on success, ENOMEM on failure.
  */
-static int rsi_version_open(struct inode *inode,
-			    struct file *file)
+static int rsi_version_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, rsi_version_read, inode->i_private);
 }
@@ -143,15 +118,9 @@ static int rsi_stats_read(struct seq_file *seq, void *data)
 {
 	struct rsi_common *common = seq->private;
 
-	unsigned char fsm_state[][32] = {
-		"FSM_CARD_NOT_READY",
-		"FSM_BOOT_PARAMS_SENT",
-		"FSM_EEPROM_READ_MAC_ADDR",
-		"FSM_RESET_MAC_SENT",
-		"FSM_RADIO_CAPS_SENT",
-		"FSM_BB_RF_PROG_SENT",
-		"FSM_MAC_INIT_DONE"
-	};
+  unsigned char fsm_state[][32] = { "FSM_CARD_NOT_READY", "FSM_BOOT_PARAMS_SENT", "FSM_EEPROM_READ_MAC_ADDR",
+                                    "FSM_RESET_MAC_SENT", "FSM_RADIO_CAPS_SENT",  "FSM_BB_RF_PROG_SENT",
+                                    "FSM_MAC_INIT_DONE" };
 	seq_puts(seq, "==> RSI STA DRIVER STATUS <==\n");
 	seq_puts(seq, "DRIVER_FSM_STATE: ");
 
@@ -161,38 +130,23 @@ static int rsi_stats_read(struct seq_file *seq, void *data)
 	seq_printf(seq, "(%d)\n\n", common->fsm_state);
 
 	/* Mgmt TX Path Stats */
-	seq_printf(seq, "total_mgmt_pkt_send : %d\n",
-		   common->tx_stats.total_tx_pkt_send[MGMT_SOFT_Q]);
-	seq_printf(seq, "total_mgmt_pkt_queued : %d\n",
-		   skb_queue_len(&common->tx_queue[MGMT_SOFT_Q]));
-	seq_printf(seq, "total_mgmt_pkt_freed  : %d\n",
-		   common->tx_stats.total_tx_pkt_freed[MGMT_SOFT_Q]);
+  seq_printf(seq, "total_mgmt_pkt_send : %d\n", common->tx_stats.total_tx_pkt_send[MGMT_SOFT_Q]);
+  seq_printf(seq, "total_mgmt_pkt_queued : %d\n", skb_queue_len(&common->tx_queue[MGMT_SOFT_Q]));
+  seq_printf(seq, "total_mgmt_pkt_freed  : %d\n", common->tx_stats.total_tx_pkt_freed[MGMT_SOFT_Q]);
 
 	/* Data TX Path Stats */
-	seq_printf(seq, "total_data_vo_pkt_send: %8d\t",
-		   common->tx_stats.total_tx_pkt_send[VO_Q]);
-	seq_printf(seq, "total_data_vo_pkt_queued:  %8d\t",
-		   skb_queue_len(&common->tx_queue[VO_Q]));
-	seq_printf(seq, "total_vo_pkt_freed: %8d\n",
-		   common->tx_stats.total_tx_pkt_freed[VO_Q]);
-	seq_printf(seq, "total_data_vi_pkt_send: %8d\t",
-		   common->tx_stats.total_tx_pkt_send[VI_Q]);
-	seq_printf(seq, "total_data_vi_pkt_queued:  %8d\t",
-		   skb_queue_len(&common->tx_queue[VI_Q]));
-	seq_printf(seq, "total_vi_pkt_freed: %8d\n",
-		   common->tx_stats.total_tx_pkt_freed[VI_Q]);
-	seq_printf(seq,  "total_data_be_pkt_send: %8d\t",
-		   common->tx_stats.total_tx_pkt_send[BE_Q]);
-	seq_printf(seq, "total_data_be_pkt_queued:  %8d\t",
-		   skb_queue_len(&common->tx_queue[BE_Q]));
-	seq_printf(seq, "total_be_pkt_freed: %8d\n",
-		   common->tx_stats.total_tx_pkt_freed[BE_Q]);
-	seq_printf(seq, "total_data_bk_pkt_send: %8d\t",
-		   common->tx_stats.total_tx_pkt_send[BK_Q]);
-	seq_printf(seq, "total_data_bk_pkt_queued:  %8d\t",
-		   skb_queue_len(&common->tx_queue[BK_Q]));
-	seq_printf(seq, "total_bk_pkt_freed: %8d\n",
-		   common->tx_stats.total_tx_pkt_freed[BK_Q]);
+  seq_printf(seq, "total_data_vo_pkt_send: %8d\t", common->tx_stats.total_tx_pkt_send[VO_Q]);
+  seq_printf(seq, "total_data_vo_pkt_queued:  %8d\t", skb_queue_len(&common->tx_queue[VO_Q]));
+  seq_printf(seq, "total_vo_pkt_freed: %8d\n", common->tx_stats.total_tx_pkt_freed[VO_Q]);
+  seq_printf(seq, "total_data_vi_pkt_send: %8d\t", common->tx_stats.total_tx_pkt_send[VI_Q]);
+  seq_printf(seq, "total_data_vi_pkt_queued:  %8d\t", skb_queue_len(&common->tx_queue[VI_Q]));
+  seq_printf(seq, "total_vi_pkt_freed: %8d\n", common->tx_stats.total_tx_pkt_freed[VI_Q]);
+  seq_printf(seq, "total_data_be_pkt_send: %8d\t", common->tx_stats.total_tx_pkt_send[BE_Q]);
+  seq_printf(seq, "total_data_be_pkt_queued:  %8d\t", skb_queue_len(&common->tx_queue[BE_Q]));
+  seq_printf(seq, "total_be_pkt_freed: %8d\n", common->tx_stats.total_tx_pkt_freed[BE_Q]);
+  seq_printf(seq, "total_data_bk_pkt_send: %8d\t", common->tx_stats.total_tx_pkt_send[BK_Q]);
+  seq_printf(seq, "total_data_bk_pkt_queued:  %8d\t", skb_queue_len(&common->tx_queue[BK_Q]));
+  seq_printf(seq, "total_bk_pkt_freed: %8d\n", common->tx_stats.total_tx_pkt_freed[BK_Q]);
 
 	seq_puts(seq, "\n");
 	return 0;
@@ -206,8 +160,7 @@ static int rsi_stats_read(struct seq_file *seq, void *data)
  *
  * Return: Pointer to the opened file status: 0 on success, ENOMEM on failure.
  */
-static int rsi_stats_open(struct inode *inode,
-			  struct file *file)
+static int rsi_stats_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, rsi_stats_read, inode->i_private);
 }
@@ -236,8 +189,7 @@ static int rsi_debug_zone_read(struct seq_file *seq, void *data)
  *
  * Return: Pointer to the opened file status: 0 on success, ENOMEM on failure.
  */
-static int rsi_debug_read(struct inode *inode,
-			  struct file *file)
+static int rsi_debug_read(struct inode *inode, struct file *file)
 {
 	return single_open(file, rsi_debug_zone_read, inode->i_private);
 }
@@ -252,10 +204,7 @@ static int rsi_debug_read(struct inode *inode,
  *
  * Return: len: Number of bytes read.
  */
-static ssize_t rsi_debug_zone_write(struct file *filp,
-				    const char __user *buff,
-				    size_t len,
-				    loff_t *data)
+static ssize_t rsi_debug_zone_write(struct file *filp, const char __user *buff, size_t len, loff_t *data)
 {
 	unsigned long dbg_zone;
 	int ret;
@@ -296,7 +245,8 @@ static int rsi_bgscan_int_read(struct seq_file *file, void *data)
 	}
 	params = &common->bgscan_info;
 
-	seq_printf(file, "%d %d %d %d %d %d %d ",
+  seq_printf(file,
+             "%d %d %d %d %d %d %d ",
 		   common->bgscan_en,
 		   params->bgscan_threshold,
 		   params->roam_threshold,
@@ -309,8 +259,7 @@ static int rsi_bgscan_int_read(struct seq_file *file, void *data)
 		seq_printf(file, "%d\n", params->debugfs_bg_channels);
 		for (cnt = 0; cnt < params->debugfs_bg_channels; cnt++) {
 			if (params->debugfs_channels[cnt] & (DFS_CHANNEL))
-				seq_printf(file, "%d[DFS] ",
-						(params->debugfs_channels[cnt] & 0x7FFF));
+        seq_printf(file, "%d[DFS] ", (params->debugfs_channels[cnt] & 0x7FFF));
 			else
 				seq_printf(file, "%d ", params->debugfs_channels[cnt]);
 		}
@@ -318,8 +267,7 @@ static int rsi_bgscan_int_read(struct seq_file *file, void *data)
 		seq_printf(file, "%d\n", params->num_bg_channels);
 		for (cnt = 0; cnt < params->num_bg_channels; cnt++) {
 			if (params->channels2scan[cnt] & (DFS_CHANNEL))
-				seq_printf(file, "%d[DFS] ",
-						(params->channels2scan[cnt] & 0x7FFF));
+        seq_printf(file, "%d[DFS] ", (params->channels2scan[cnt] & 0x7FFF));
 			else
 				seq_printf(file, "%d ", params->channels2scan[cnt]);
 		}
@@ -364,8 +312,7 @@ int rsi_validate_debugfs_bgscan_channels(struct rsi_common *common)
 	if (num_valid_channels > 0) {
 		for (ii = 0 ; ii < num_valid_channels ; ii++) {
 			bgscan_info->debugfs_channels[ii] = valid_debugfs_channels[ii];
-			if ((common->bgscan_info.debugfs_channels[ii] >= 52) &&
-					(common->bgscan_info.debugfs_channels[ii] <= 140))
+      if ((common->bgscan_info.debugfs_channels[ii] >= 52) && (common->bgscan_info.debugfs_channels[ii] <= 140))
 				common->bgscan_info.debugfs_channels[ii] |= DFS_CHANNEL;
 		}
 		bgscan_info->debugfs_bg_channels = num_valid_channels;
@@ -382,9 +329,7 @@ int rsi_validate_debugfs_bgscan_channels(struct rsi_common *common)
  * @user_params_cnt : user_params_cnt
  * Return : O on success and -1 on Failure.
  */
-static int rsi_validate_bgscan_params(struct rsi_common *common,
-					 int *bgscan_vals,
-					 int user_params_cnt)
+static int rsi_validate_bgscan_params(struct rsi_common *common, int *bgscan_vals, int user_params_cnt)
 {
 	struct bgscan_config_params *bgscan_info = &common->bgscan_info;
 	int cnt = 0;
@@ -455,14 +400,14 @@ static int rsi_validate_bgscan_params(struct rsi_common *common,
  *
  * Return: Number of bytes read.
  */
-static ssize_t rsi_bgscan_write(struct file *file,
-			        const char __user *user_buff,
-				size_t count,
-				loff_t *ppos)
+static ssize_t rsi_bgscan_write(struct file *file, const char __user *user_buff, size_t count, loff_t *ppos)
 
 {
 	struct rsi_common *common = file->f_inode->i_private;
 	struct rsi_hw *adapter = NULL;
+#ifdef CONFIG_STA_PLUS_AP
+  struct ieee80211_vif *vif = NULL;
+#endif
 	struct ieee80211_bss_conf *bss = NULL;
 	int bgscan_vals[64] = { 0 };
 	int bytes_read = 0, t_bytes;
@@ -479,7 +424,14 @@ static ssize_t rsi_bgscan_write(struct file *file,
 		return -ENODEV;
 	}
 	adapter = common->priv;
-	bss = &adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#ifndef CONFIG_STA_PLUS_AP
+   bss = &adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#else
+  vif = rsi_get_sta_vif(adapter);
+  if (!vif)
+    return -ENODEV;
+  bss = &vif->bss_conf;
+#endif
 	if (bss && !bss->assoc) {
 		redpine_dbg(ERR_ZONE, "Send Bgscan params after connection\n");
 		return -ENODEV;
@@ -600,9 +552,17 @@ static ssize_t rsi_write_chload_meas_req(struct file *file,
 	int total_bytes, bytes_read = 0;
 	int ret, i;
         struct rsi_hw *adapter = common->priv;
-	struct ieee80211_bss_conf *bss =
-		&adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_bss_conf *bss = &adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#else
+  struct ieee80211_vif *vif      = NULL;
+  struct ieee80211_bss_conf *bss = NULL;
 
+  vif = rsi_get_sta_vif(adapter);
+  if (!vif)
+    return -ENODEV;
+  bss                            = &vif->bss_conf;
+#endif
 	if (!bss->assoc) {
 		redpine_dbg(ERR_ZONE,
 			"unable to send channelload in non connected state\n");
@@ -647,12 +607,20 @@ static int rsi_int_read_chload_params(struct seq_file *file, void *data)
 	struct rsi_common *common = file->private;
 	struct rsi_chload_meas_req_params *params = &common->rrm_chload_params;
 
-	seq_printf(file, "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %d %d %d %d %d %d\n",
-		   params->macid[0], params->macid[1], params->macid[2],
-		   params->macid[3], params->macid[4], params->macid[5],
-		   params->regulatory_class, params->channel_num,
-		   params->rand_interval, params->meas_duration,
-		   params->meas_req_mode, params->meas_type);
+  seq_printf(file,
+             "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %d %d %d %d %d %d\n",
+             params->macid[0],
+             params->macid[1],
+             params->macid[2],
+             params->macid[3],
+             params->macid[4],
+             params->macid[5],
+             params->regulatory_class,
+             params->channel_num,
+             params->rand_interval,
+             params->meas_duration,
+             params->meas_req_mode,
+             params->meas_type);
 	seq_puts(file, "\n");
 
 	return 0;
@@ -663,9 +631,7 @@ static int rsi_read_chload_meas_req(struct inode *inode, struct file *file)
 	return single_open(file, rsi_int_read_chload_params, inode->i_private);
 }
 
-static ssize_t rsi_write_frame_meas_req(struct file *file,
-					const char __user *user_buff,
-					size_t count, loff_t *ppos)
+static ssize_t rsi_write_frame_meas_req(struct file *file, const char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct rsi_common *common = file->f_inode->i_private;
 	char in_buf[200];
@@ -673,9 +639,18 @@ static ssize_t rsi_write_frame_meas_req(struct file *file,
 	int total_bytes, bytes_read = 0;
 	int ret, i;
         struct rsi_hw *adapter = common->priv;
-	struct ieee80211_bss_conf *bss =
-		&adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_bss_conf *bss = &adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#else
+  struct ieee80211_vif *vif      = NULL;
+  struct ieee80211_bss_conf *bss = NULL;
 
+  vif = rsi_get_sta_vif(adapter);
+  if (!vif)
+    return -ENODEV;
+  bss = &vif->bss_conf;
+#endif
+ 
 	if (!bss->assoc) {
 		redpine_dbg(ERR_ZONE,
 			"unable to send frame req in non connected state\n");
@@ -726,16 +701,27 @@ static int rsi_int_read_frame_params(struct seq_file *file, void *data)
 	struct rsi_common *common = file->private;
 	struct rsi_frame_meas_req_params *params = &common->rrm_frame_params;
 
-	seq_printf(file, "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %d %d %d %d %d %d %d\n"
+  seq_printf(file,
+             "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %d %d %d %d %d %d %d\n"
 		   "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
-		   params->destid[0], params->destid[1], params->destid[2],
-		   params->destid[3], params->destid[4], params->destid[5],
-		   params->regulatory_class, params->channel_num,
-		   params->rand_interval, params->meas_duration,
-		   params->meas_req_mode, params->meas_type,
-		   params->frame_req_type, params->macid[0],
-		   params->macid[1], params->macid[2],
-		   params->macid[3], params->macid[4],
+             params->destid[0],
+             params->destid[1],
+             params->destid[2],
+             params->destid[3],
+             params->destid[4],
+             params->destid[5],
+             params->regulatory_class,
+             params->channel_num,
+             params->rand_interval,
+             params->meas_duration,
+             params->meas_req_mode,
+             params->meas_type,
+             params->frame_req_type,
+             params->macid[0],
+             params->macid[1],
+             params->macid[2],
+             params->macid[3],
+             params->macid[4],
 		   params->macid[5]);
 	seq_puts(file, "\n");
 
@@ -747,9 +733,7 @@ static int rsi_read_frame_meas_req(struct inode *inode, struct file *file)
 	return single_open(file, rsi_int_read_frame_params, inode->i_private);
 }
 
-static ssize_t rsi_write_beacon_meas_req(struct file *file,
-					 const char __user *user_buff,
-					 size_t count, loff_t *ppos)
+static ssize_t rsi_write_beacon_meas_req(struct file *file, const char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct rsi_common *common = file->f_inode->i_private;
 	char in_buf[200];
@@ -758,8 +742,17 @@ static ssize_t rsi_write_beacon_meas_req(struct file *file,
 	int ret;
 	char str[32];
         struct rsi_hw *adapter = common->priv;
-	struct ieee80211_bss_conf *bss =
-		&adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_bss_conf *bss = &adapter->vifs[adapter->sc_nvifs - 1]->bss_conf;
+#else
+  struct ieee80211_vif *vif      = NULL;
+  struct ieee80211_bss_conf *bss = NULL;
+
+  vif = rsi_get_sta_vif(adapter);
+  if (!vif)
+    return -ENODEV;
+  bss = &vif->bss_conf;
+#endif
 
 	if (!bss->assoc) {
 		redpine_dbg(ERR_ZONE,
@@ -838,17 +831,29 @@ static int rsi_int_read_beacon_params(struct seq_file *file, void *data)
 	struct rsi_common *common = file->private;
 	struct rsi_beacon_meas_req_params *params = &common->rrm_beacon_params;
 
-	seq_printf(file, "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %d %d %d %d %d %d %d "
+  seq_printf(file,
+             "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %d %d %d %d %d %d %d "
 			 "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x %s\n",
-		   params->destid[0], params->destid[1], params->destid[2],
-		   params->destid[3], params->destid[4], params->destid[5],
-		   params->regulatory_class, params->channel_num,
-		   params->rand_interval, params->meas_duration,
-		   params->meas_req_mode, params->meas_type,
-		   params->meas_mode, params->bssid[0],
-		   params->bssid[1], params->bssid[2],
-		   params->bssid[3], params->bssid[4],
-		   params->bssid[5], params->str);
+             params->destid[0],
+             params->destid[1],
+             params->destid[2],
+             params->destid[3],
+             params->destid[4],
+             params->destid[5],
+             params->regulatory_class,
+             params->channel_num,
+             params->rand_interval,
+             params->meas_duration,
+             params->meas_req_mode,
+             params->meas_type,
+             params->meas_mode,
+             params->bssid[0],
+             params->bssid[1],
+             params->bssid[2],
+             params->bssid[3],
+             params->bssid[4],
+             params->bssid[5],
+             params->str);
 	seq_puts(file, "\n");
 
 	return 0;
@@ -879,7 +884,8 @@ static int rsi_read_ps_params_from_buf(struct seq_file *file, void *data)
 		redpine_dbg(ERR_ZONE, "No Interface\n");
 		return -ENODEV;
 	}
-	seq_printf(file, "%d %d %d %d %d %d %d %d %d %d %d %d\n",
+  seq_printf(file,
+             "%d %d %d %d %d %d %d %d %d %d %d %d\n",
 			ps_info->sleep_type,
 			ps_info->tx_threshold,
 			ps_info->rx_threshold,
@@ -1033,10 +1039,7 @@ int rsi_validate_ps_params(struct rsi_common *common, int *ps_params_vals)
  * Return: Number of bytes read.
  */
 
-static ssize_t rsi_write_ps_params(struct file *file,
-				const char __user *user_buff,
-				size_t count,
-				loff_t *ppos)
+static ssize_t rsi_write_ps_params(struct file *file, const char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct rsi_common *common = file->f_inode->i_private;
 	struct rsi_hw *adapter = common->priv;
@@ -1047,8 +1050,7 @@ static ssize_t rsi_write_ps_params(struct file *file,
 
 	if (!ps_param_buf)
 		return -ENOMEM;
-	total_bytes = simple_write_to_buffer(ps_param_buf,
-					     count, ppos, user_buff, count);
+  total_bytes = simple_write_to_buffer(ps_param_buf, count, ppos, user_buff, count);
 	if (total_bytes != count) {
 		redpine_dbg(ERR_ZONE, "Invalid Power Save Parameter passed\n");
 		kfree(ps_param_buf);
@@ -1057,9 +1059,7 @@ static ssize_t rsi_write_ps_params(struct file *file,
 	/* make sure that buf is null terminated */
 	ps_param_buf[count] = '\0';
 	while (1) {
-		ret = sscanf(ps_param_buf + bytes_read, "%d%n",
-			     &ps_params_vals[cnt++],
-			     &t_bytes);
+    ret = sscanf(ps_param_buf + bytes_read, "%d%n", &ps_params_vals[cnt++], &t_bytes);
 		if (ret <= 0)
 			break;
 		bytes_read += t_bytes;
@@ -1067,7 +1067,7 @@ static ssize_t rsi_write_ps_params(struct file *file,
 	kfree(ps_param_buf);
 	if (rsi_validate_ps_params(common, ps_params_vals))
 		return -EINVAL;
-	if (adapter->ps_state == PS_ENABLED)
+  if (adapter->user_ps_en)
 		rsi_enable_ps(adapter);
 	return total_bytes;
 }
@@ -1077,6 +1077,7 @@ static ssize_t rsi_set_bgscan_ssid(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
+  int total_bytes;
 	struct rsi_common *common = file->f_inode->i_private;
 
 	common->bgscan_ssid_len = count - 1;
@@ -1085,7 +1086,10 @@ static ssize_t rsi_set_bgscan_ssid(struct file *file,
 			"The ssid should be <= to 32 characters\n");
 		return -EINVAL;
 	}
-	memcpy(common->bgscan_ssid, user_buff, common->bgscan_ssid_len);
+  total_bytes = simple_write_to_buffer(common->bgscan_ssid, count, ppos, user_buff, count);
+  if (total_bytes < 1)
+    return -EINVAL;
+  common->bgscan_ssid[count] = '\0';
 	return count;
 }
 
@@ -1143,8 +1147,7 @@ int redpine_init_dbgfs(struct rsi_hw *adapter)
 
 	adapter->dfsentry = dev_dbgfs;
 
-	snprintf(devdir, sizeof(devdir), "%s",
-		 wiphy_name(adapter->hw->wiphy));
+  snprintf(devdir, sizeof(devdir), "%s", wiphy_name(adapter->hw->wiphy));
 
 	dev_dbgfs->subdir = debugfs_create_dir(devdir, NULL);
 
@@ -1155,12 +1158,7 @@ int redpine_init_dbgfs(struct rsi_hw *adapter)
 
 	for (ii = 0; ii < adapter->num_debugfs_entries; ii++) {
 		files = &dev_debugfs_files[ii];
-		dev_dbgfs->rsi_files[ii] =
-		debugfs_create_file(files->name,
-				    files->perms,
-				    dev_dbgfs->subdir,
-				    common,
-				    &files->fops);
+    dev_dbgfs->rsi_files[ii] = debugfs_create_file(files->name, files->perms, dev_dbgfs->subdir, common, &files->fops);
 	}
 	return 0;
 }

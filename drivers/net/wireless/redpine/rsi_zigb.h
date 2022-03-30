@@ -44,8 +44,7 @@
 #include <net/genetlink.h>
 #include <net/sock.h>
 
-#if((LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18))&& \
-    (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)))
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 18)) && (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 23)))
 #include <linux/sdio/ctsystem.h>
 #include <linux/sdio/sdio_busdriver.h>
 #include <linux/sdio/_sdio_defs.h>
@@ -100,8 +99,7 @@ static u8 device_mac_addr[6] = {0x00, 0x23, 0xa7, 0x27, 0x03, 0x99};
 #define DWORD_ALIGN_SZ		64
 #define ZIGB_DEREGISTER		0xff
 
-#define GET_ADAPTER_FROM_GENLCB(gcb) \
-		(ZB_ADAPTER)(gcb->gc_drvpriv)
+#define GET_ADAPTER_FROM_GENLCB(gcb) (ZB_ADAPTER)(gcb->gc_drvpriv)
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 11)
 # define get_portid(_info) ((_info)->snd_pid)
@@ -144,8 +142,7 @@ enum zb_fsm_state {
 	RSI_ZB_FSM_DEVICE_READY,
 };
 
-struct rsi_zb_adapter
-{
+struct rsi_zb_adapter {
 	struct net_device *dev; /* Stores the netdevice pointer */
 	struct rsi_common *priv;
 	u8     mac_addr[6];

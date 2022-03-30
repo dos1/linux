@@ -60,7 +60,7 @@ Build:
 		-> Select 'Redpine Signals Inc devices'
 		-> Select required interface (SDIO/USB).
 		-> Select CONFIG_RSI_HCI option for BT (classic/LE) alone mode.
-		-> Select CONFIG_RSI_COEX_MODE option for Wi-Fi + BT Coex mode. 
+		-> Select CONFIG_REDPINE_COEX_MODE option for Wi-Fi + BT Coex mode. 
 		-> Select CONFIG_RSI_ZIGB option for Zigbee Mode and WLAN + Zigb Coex modes. 
 		-> Build driver using below commands
 
@@ -86,7 +86,7 @@ Build:
 		-> Uncomment 'CONFIG_RSI_MULTI_MODE=y' in Makefile to enable multiple opermodes support
 											in driver.
 
-		-> Uncomment 'CONFIG_RSI_COEX_MODE=y' in Makefile to run Wi-Fi + BT Coex mode or
+		-> Uncomment 'CONFIG_REDPINE_COEX_MODE=y' in Makefile to run Wi-Fi + BT Coex mode or
 								 Wi-Fi + ZigB end device coex mode.
 
 		-> Uncomment 'CONFIG_RSI_NO_SDIO_MULTIBLOCK=y' if your platform's SDIO host controller

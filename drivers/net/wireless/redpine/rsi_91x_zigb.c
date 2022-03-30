@@ -1,32 +1,17 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- *	1. Redistributions of source code must retain the above copyright
- *	   notice, this list of conditions and the following disclaimer.
- *
- *	2. Redistributions in binary form must reproduce the above copyright
- *	   notice, this list of conditions and the following disclaimer in the
- *	   documentation and/or other materials provided with the distribution.
- *
- *	3. Neither the name of the copyright holder nor the names of it
- *	   contributors may be used to endorse or promote products derived from
- *	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include "rsi_main.h"
@@ -125,15 +110,11 @@ int zigb_genl_recv(struct sk_buff *skb, struct genl_info *info)
 	if (na) {
 		data = (u8 *)nla_data(na);
 		if (!data) {
-			rsi_zb_dbg(ERR_ZONE,
-				"%s: no data recevied on family `%s'\n",
-				__func__, gcb->gc_name);
+      rsi_zb_dbg(ERR_ZONE, "%s: no data recevied on family `%s'\n", __func__, gcb->gc_name);
 			goto err;
 		}
 	} else {
-		rsi_zb_dbg(ERR_ZONE,
-			"%s: netlink attr is NULL on family `%s'\n",
-			__func__, gcb->gc_name);
+    rsi_zb_dbg(ERR_ZONE, "%s: netlink attr is NULL on family `%s'\n", __func__, gcb->gc_name);
 		goto err;
 	}
 
@@ -149,8 +130,7 @@ int zigb_genl_recv(struct sk_buff *skb, struct genl_info *info)
 	len = desc & 0x0FFF;
 	pkttype = ((desc & 0xF000) >> 12);
 
-	rsi_zb_dbg(INFO_ZONE, "%s: rx data, desc %x len %x pkttype %x\n",
-		   __func__, desc, len, pkttype);
+  rsi_zb_dbg(INFO_ZONE, "%s: rx data, desc %x len %x pkttype %x\n", __func__, desc, len, pkttype);
 
 	skb = dev_alloc_skb(len + FRAME_DESC_SZ + DWORD_ALIGN_SZ);
 	if (!skb) {
@@ -198,8 +178,7 @@ void unregister_dev(struct net_device *dev)
 
 static int zigb_deregister_fw(void *priv)
 {
-	struct rsi_zb_adapter *zb_adapter =
-		(struct rsi_zb_adapter *)g_proto_ops->get_zb_context(priv);
+  struct rsi_zb_adapter *zb_adapter = (struct rsi_zb_adapter *)g_proto_ops->get_zb_context(priv);
 	u8 *frame_desc;
 	struct sk_buff *skb = NULL;
 	int status = 0;
@@ -288,8 +267,13 @@ int zigb_genl_send(struct genl_cb *gcb, struct sk_buff *skb)
 	if (!data || !len)
 		return -ENODATA;
 
-	rsi_zb_dbg(INFO_ZONE, "%s: sending data-%p len-%d pid-%d family-`%s'\n",
-		   __func__, data, len, gcb->gc_pid, gcb->gc_name);
+  rsi_zb_dbg(INFO_ZONE,
+             "%s: sending data-%p len-%d pid-%d family-`%s'\n",
+             __func__,
+             data,
+             len,
+             gcb->gc_pid,
+             gcb->gc_name);
 
 	gskb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
 	if (!gskb) {
@@ -298,8 +282,7 @@ int zigb_genl_send(struct genl_cb *gcb, struct sk_buff *skb)
 		goto err;
 	}
 
-	hdr = genlmsg_put(gskb, 0, gcb->gc_seq + 1,
-              		  gcb->gc_family, 0, RSI_USER_C_CMD);
+  hdr = genlmsg_put(gskb, 0, gcb->gc_seq + 1, gcb->gc_family, 0, RSI_USER_C_CMD);
 	if (!hdr) {
 		rsi_zb_dbg(ERR_ZONE, "%s: Failed to set msg\n", __func__);
 		rc = -EINVAL;
@@ -308,15 +291,13 @@ int zigb_genl_send(struct genl_cb *gcb, struct sk_buff *skb)
 
 	rc = nla_put(gskb, RSI_USER_A_MAX, len, data);
 	if (rc) {
-		rsi_zb_dbg(ERR_ZONE, "%s: 'nla_put' fail(%d) family '%s'\n",
-			   __func__, rc, gcb->gc_name );
+    rsi_zb_dbg(ERR_ZONE, "%s: 'nla_put' fail(%d) family '%s'\n", __func__, rc, gcb->gc_name);
 		goto err_fill;
 	}
 	genlmsg_end(gskb, hdr);
 	rc = genlmsg_unicast(net, gskb, gcb->gc_pid);
 	if (rc) {
-		rsi_zb_dbg(ERR_ZONE, "%s: 'genlmsg_unicast' fail(%d) family '%s'\n",
-			   __func__, rc, gcb->gc_name );
+    rsi_zb_dbg(ERR_ZONE, "%s: 'genlmsg_unicast' fail(%d) family '%s'\n", __func__, rc, gcb->gc_name);
 		goto err;
 	}
 	return rc;
@@ -359,8 +340,7 @@ int rsi_zigb_recv_pkt(void *priv, u8 *pkt)
 	skb->dev = (void *)dev;
         status = zigb_genl_send(gcb, skb);
         if (status != 0)
-		rsi_zb_dbg(ERR_ZONE, "%s: Failed return form zigb_genl_send \n",
-			   __func__);
+    rsi_zb_dbg(ERR_ZONE, "%s: Failed return form zigb_genl_send \n", __func__);
 	dev_kfree_skb(skb);
 
 	return status;
@@ -383,8 +363,7 @@ int rsi_zigb_attach(void *priv, struct rsi_proto_ops *ops)
 		.ndo_start_xmit     = rsi_zigb_xmit,
 		.ndo_do_ioctl       = rsi_zigb_ioctl,
 	};
- 	dev = alloc_netdev(sizeof(struct rsi_zb_adapter), "zigb%d",
-			   NET_NAME_UNKNOWN, ether_setup);
+  dev = alloc_netdev(sizeof(struct rsi_zb_adapter), "zigb%d", NET_NAME_UNKNOWN, ether_setup);
 	if (!dev) {
 		rsi_zb_dbg(ERR_ZONE, "%s: Failed to alloc netdev\n", __func__);
 		return -EINVAL;
@@ -400,8 +379,7 @@ int rsi_zigb_attach(void *priv, struct rsi_proto_ops *ops)
 	zb_adapter->fsm_state = RSI_ZB_FSM_DEVICE_READY;
 
 	if (register_dev(dev) != 0) {
-		rsi_zb_dbg(ERR_ZONE, "%s: Failed to register zigb device\n",
-			   __func__);
+    rsi_zb_dbg(ERR_ZONE, "%s: Failed to register zigb device\n", __func__);
 		goto err;
 	}
 	zb_adapter->dev = dev;
@@ -411,8 +389,7 @@ int rsi_zigb_attach(void *priv, struct rsi_proto_ops *ops)
 
 	gcb = kzalloc(sizeof(*gcb), GFP_KERNEL);
 	if (!gcb) {
-		rsi_zb_dbg(ERR_ZONE, "%s: Failed to alloc genl control block\n",
-			   __func__);
+    rsi_zb_dbg(ERR_ZONE, "%s: Failed to alloc genl control block\n", __func__);
 		goto err;
 	}
 	zb_adapter->gcb = gcb;
@@ -433,8 +410,7 @@ int rsi_zigb_attach(void *priv, struct rsi_proto_ops *ops)
 	/*FIXME*/
 	zigb_genl_family->id = (int)(common->priv->drv_instance_index) - 1;
 	/* Below 8th byte differentiates family names. */
-	zigb_genl_family->name[8] = (char)(zigb_genl_family->id +
-					   ASCII_NUMERIC_OFFSET);
+  zigb_genl_family->name[8] = (char)(zigb_genl_family->id + ASCII_NUMERIC_OFFSET);
 #else
 	zigb_genl_family->id = 0;
 #endif
@@ -454,8 +430,7 @@ int rsi_zigb_attach(void *priv, struct rsi_proto_ops *ops)
 	gcb->gc_family->n_ops = gcb->gc_n_ops;
 
 	if (genl_register_family(gcb->gc_family)) {
-		rsi_zb_dbg(ERR_ZONE, "%s: genl_register_family failed\n",
-			   __func__);
+    rsi_zb_dbg(ERR_ZONE, "%s: genl_register_family failed\n", __func__);
 		goto err;
 	}
 	gcb->gc_done = 1;
@@ -491,8 +466,7 @@ void rsi_zigb_detach(void *priv)
         
 	status = zigb_deregister_fw(priv);
 	if (!status)
-		rsi_zb_dbg(ERR_ZONE, "%s: Failed sending deregister zigb\n",
-			   __func__);
+    rsi_zb_dbg(ERR_ZONE, "%s: Failed sending deregister zigb\n", __func__);
 	if (dev) {
 		unregister_dev(dev);
 	        zb_adapter->dev = NULL;

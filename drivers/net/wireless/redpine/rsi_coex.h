@@ -46,10 +46,7 @@
 
 #include "rsi_main.h"
 
-enum rsi_proto {
-	RSI_PROTO_WLAN = 0,
-	RSI_PROTO_BT
-};
+enum rsi_proto { RSI_PROTO_WLAN = 0, RSI_PROTO_BT };
 
 struct rsi_coex_ctrl_block {
 	struct rsi_common *priv;
@@ -59,9 +56,7 @@ struct rsi_coex_ctrl_block {
 };
 
 int rsi_coex_init(struct rsi_common *common);
-int rsi_coex_send_pkt(void *priv,
-		      struct sk_buff *skb,
-		      u8 proto_type);
+int rsi_coex_send_pkt(void *priv, struct sk_buff *skb, u8 proto_type);
 int rsi_coex_recv_pkt(struct rsi_common *common, u8 *msg);
 void rsi_coex_deinit(struct rsi_common *common);
 #endif

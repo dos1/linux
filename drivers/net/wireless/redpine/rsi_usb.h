@@ -69,7 +69,7 @@ struct rx_usb_ctrl_block {
 	u8 ep_num;
 };
 
-struct receive_info {
+struct usb_receive_info {
 	bool buffer_full;
 	bool semi_buffer_full;
 	bool mgmt_buffer_full;
@@ -82,7 +82,7 @@ struct receive_info {
 
 struct rsi_91x_usbdev {
 	void *priv;
-	struct receive_info rx_info;
+  struct usb_receive_info rx_info;
 	struct rsi_thread rx_thread;
 	u8 endpoint;
 	struct usb_device *usbdev;
@@ -110,18 +110,15 @@ static inline int rsi_usb_event_timeout(struct rsi_hw *adapter)
 }
 
 int rsi_usb_device_init(struct rsi_common *common);
-int rsi_usb_read_register_multiple(struct rsi_hw *adapter, u32 addr,
-				   u8 *data, u16 count);
-int rsi_usb_write_register_multiple(struct rsi_hw *adapter, u32 addr,
-				    u8 *data, u16 count);
+int rsi_usb_read_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count);
+int rsi_usb_write_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count);
 void rsi_usb_rx_thread(struct rsi_common *common);
 
 int rsi_usb_host_intf_write_pkt(struct rsi_hw *adapter, u8 *pkt, u32 len);
-int rsi_usb_master_reg_read(struct rsi_hw *adapter, u32 reg,
-			    u32 *value, u16 len);
-int rsi_usb_master_reg_write(struct rsi_hw *adapter, unsigned long reg,
-			     unsigned long value, u16 len);
-int rsi_usb_load_data_master_write(struct rsi_hw *adapter, u32 base_address,
+int rsi_usb_master_reg_read(struct rsi_hw *adapter, u32 reg, u32 *value, u16 len);
+int rsi_usb_master_reg_write(struct rsi_hw *adapter, unsigned long reg, unsigned long value, u16 len);
+int rsi_usb_load_data_master_write(struct rsi_hw *adapter,
+                                   u32 base_address,
 				   u32 instructions_sz,
 				   u16 block_size,
 				   u8 *ta_firmware);

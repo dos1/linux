@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include <linux/etherdevice.h>
 #include "rsi_mgmt.h"
@@ -36,15 +20,24 @@
 #if defined(CONFIG_REDPINE_11K) && defined(RSI_DEBUG_RRM)
 int rsi_rrm_send_channel_load_req(struct rsi_common *common)
 {
-#ifdef RSI_DEBUG_RRM
-	struct ieee80211_vif *vif =
-		common->priv->vifs[common->priv->sc_nvifs - 1];
-	struct ieee80211_bss_conf *bss = &vif->bss_conf;
-#endif
 	u8 frame_len, chload_req_len;
 	struct sk_buff *skb = NULL;
 	struct dot11_radio_meas_req *chload_req;
 	struct ieee80211_tx_info *info;
+#ifdef RSI_DEBUG_RRM
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_vif *vif      = common->priv->vifs[common->priv->sc_nvifs - 1];
+  struct ieee80211_bss_conf *bss = &vif->bss_conf;
+#else
+  struct ieee80211_vif *vif      = NULL;
+  struct ieee80211_bss_conf *bss = NULL;
+
+  vif = rsi_get_sta_vif(common->priv);
+  if (!vif)
+    return -ENODEV;
+  bss = &vif->bss_conf;
+#endif
+#endif
 
 	/* preparing on air channel load request */
 	frame_len = sizeof(struct dot11_radio_meas_req);
@@ -61,8 +54,7 @@ int rsi_rrm_send_channel_load_req(struct rsi_common *common)
 	chload_req->mac_hdr.frame_control = IEEE80211_STYPE_ACTION;
 	chload_req->mac_hdr.duration_id = 0;
 	chload_req->mac_hdr.seq_ctrl = 0;
-	ether_addr_copy(chload_req->mac_hdr.addr1,
-			common->rrm_chload_params.macid);
+  ether_addr_copy(chload_req->mac_hdr.addr1, common->rrm_chload_params.macid);
 	ether_addr_copy(chload_req->mac_hdr.addr2, vif->addr);
 	ether_addr_copy(chload_req->mac_hdr.addr3, bss->bssid);
 	chload_req->action_body.dialog_token = 2;/* FIXME: Fill proper value */
@@ -103,14 +95,23 @@ err:
 
 int rsi_rrm_send_frame_req(struct rsi_common *common)
 {
-	struct ieee80211_vif *vif =
-		common->priv->vifs[common->priv->sc_nvifs - 1];
-	struct ieee80211_bss_conf *bss = &vif->bss_conf;
 	u8 frame_len;
 	struct sk_buff *skb = NULL;
 	struct dot11_frame_meas_req *frame_req;
 	struct ieee80211_tx_info *info;
 	u8 frame_req_len;
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_vif *vif      = common->priv->vifs[common->priv->sc_nvifs - 1];
+  struct ieee80211_bss_conf *bss = &vif->bss_conf;
+#else
+  struct ieee80211_vif *vif      = NULL;
+  struct ieee80211_bss_conf *bss = NULL;
+
+  vif = rsi_get_sta_vif(common->priv);
+  if (!vif)
+    return -ENODEV;
+  bss                            = &vif->bss_conf;
+#endif
 
 	frame_len = sizeof(struct dot11_frame_meas_req);
 	skb = dev_alloc_skb(frame_len + DRV_HDR_SIZE);
@@ -122,8 +123,7 @@ int rsi_rrm_send_frame_req(struct rsi_common *common)
 	frame_req->mac_hdr.frame_control = IEEE80211_STYPE_ACTION;
 	frame_req->mac_hdr.duration_id = 0;
 	frame_req->mac_hdr.seq_ctrl = 0;
-	ether_addr_copy(frame_req->mac_hdr.addr1,
-			common->rrm_frame_params.destid);
+  ether_addr_copy(frame_req->mac_hdr.addr1, common->rrm_frame_params.destid);
 	ether_addr_copy(frame_req->mac_hdr.addr2, vif->addr);
 	ether_addr_copy(frame_req->mac_hdr.addr3, bss->bssid);
 
@@ -137,8 +137,7 @@ int rsi_rrm_send_frame_req(struct rsi_common *common)
 	frame_req_len = sizeof(*frame_req) - sizeof(struct ieee80211_basic_hdr);
 	frame_req_len -= sizeof(struct wl_action_req);
 	frame_req_len -= sizeof(struct rm_element);
-	frame_req->rmelem.length = sizeof(struct rm_element) - 2 +
-				   frame_req_len;
+  frame_req->rmelem.length = sizeof(struct rm_element) - 2 + frame_req_len;
 	frame_req->rmelem.token = 0;
 	frame_req->rmelem.type = 6;
 
@@ -160,9 +159,6 @@ int rsi_rrm_send_frame_req(struct rsi_common *common)
 
 int rsi_rrm_send_beacon_req(struct rsi_common *common)
 {
-	struct ieee80211_vif *vif =
-		common->priv->vifs[common->priv->sc_nvifs - 1];
-	struct ieee80211_bss_conf *bss = &vif->bss_conf;
 	u8 frame_len;
 	struct sk_buff *skb = NULL;
 	struct dot11_beacon_meas_req *beacon_req;
@@ -170,6 +166,18 @@ int rsi_rrm_send_beacon_req(struct rsi_common *common)
 	struct ieee80211_tx_info *info;
 	u16 opt_elems_len;
 	u8 beacon_req_len;
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_vif *vif      = common->priv->vifs[common->priv->sc_nvifs - 1];
+  struct ieee80211_bss_conf *bss = &vif->bss_conf;
+#else
+  struct ieee80211_vif *vif      = NULL;
+  struct ieee80211_bss_conf *bss = NULL;
+
+  vif = rsi_get_sta_vif(common->priv);
+  if (!vif)
+    return -ENODEV;
+  bss = &vif->bss_conf;
+#endif
 
 	frame_len = sizeof(struct dot11_beacon_meas_req) + MAX_OPT_SUB_ELM_SIZE;
 	skb = dev_alloc_skb(frame_len + DRV_HDR_SIZE);
@@ -183,8 +191,7 @@ int rsi_rrm_send_beacon_req(struct rsi_common *common)
 	beacon_req->mac_hdr.frame_control = IEEE80211_STYPE_ACTION;
 	beacon_req->mac_hdr.duration_id = 0;
 	beacon_req->mac_hdr.seq_ctrl = 0;
-	ether_addr_copy(beacon_req->mac_hdr.addr1,
-			common->rrm_beacon_params.destid);
+  ether_addr_copy(beacon_req->mac_hdr.addr1, common->rrm_beacon_params.destid);
 	ether_addr_copy(beacon_req->mac_hdr.addr2, vif->addr);
 	ether_addr_copy(beacon_req->mac_hdr.addr3, bss->bssid);
 
@@ -194,17 +201,14 @@ int rsi_rrm_send_beacon_req(struct rsi_common *common)
 	beacon_req->action_body.num_repetitions = 0;
 	beacon_req->rmelem.mode = common->rrm_beacon_params.meas_req_mode;
 	beacon_req->rmelem.element_id = MEAS_REQ;
-	beacon_req_len =
-		sizeof(*beacon_req) - sizeof(struct ieee80211_basic_hdr);
+  beacon_req_len                          = sizeof(*beacon_req) - sizeof(struct ieee80211_basic_hdr);
 	beacon_req_len -= sizeof(struct wl_action_req);
 	beacon_req_len -= sizeof(struct rm_element);
-	beacon_req->rmelem.length = sizeof(struct rm_element) - 2 +
-				    beacon_req_len;
+  beacon_req->rmelem.length = sizeof(struct rm_element) - 2 + beacon_req_len;
 	beacon_req->rmelem.token = 0;
 	beacon_req->rmelem.type = 5;
 
-	beacon_req->regulatory_class =
-		common->rrm_beacon_params.regulatory_class;
+  beacon_req->regulatory_class = common->rrm_beacon_params.regulatory_class;
 	beacon_req->channel_num = common->rrm_beacon_params.channel_num;
 	beacon_req->rand_int = common->rrm_beacon_params.rand_interval;
 	beacon_req->meas_duration = common->rrm_beacon_params.meas_duration;
@@ -220,8 +224,7 @@ int rsi_rrm_send_beacon_req(struct rsi_common *common)
 	opt_sub = (struct dot11_elem *)(beacon_req->opt_elems + opt_elems_len);
 	opt_sub->elem_id = 0;
 	opt_sub->elem_len = strlen(common->rrm_beacon_params.str);
-	memcpy(opt_sub->elem_data, common->rrm_beacon_params.str,
-	       opt_sub->elem_len);
+  memcpy(opt_sub->elem_data, common->rrm_beacon_params.str, opt_sub->elem_len);
 
 	opt_elems_len += (2 + opt_sub->elem_len);
 	beacon_req->rmelem.length += opt_elems_len;
@@ -236,9 +239,7 @@ int rsi_rrm_send_beacon_req(struct rsi_common *common)
 }
 #endif
 
-int rsi_rrm_parse_channel_load_req(struct rsi_common *common,
-				   struct sk_buff *skb, 
-				   struct rsi_meas_params *params)
+int rsi_rrm_parse_channel_load_req(struct rsi_common *common, struct sk_buff *skb, struct rsi_meas_params *params)
 {
 	u8 *frm = &skb->data[MIN_802_11_HDR_LEN];
 
@@ -256,9 +257,7 @@ int rsi_rrm_parse_channel_load_req(struct rsi_common *common,
 	return 0;
 }
 
-int rsi_rrm_parse_frame_req(struct rsi_common *common,
-			    struct sk_buff *skb,
-			    struct rsi_frame_meas_params *params)
+int rsi_rrm_parse_frame_req(struct rsi_common *common, struct sk_buff *skb, struct rsi_frame_meas_params *params)
 {
 	u8 *frm = &skb->data[MIN_802_11_HDR_LEN];
 
@@ -278,9 +277,7 @@ int rsi_rrm_parse_frame_req(struct rsi_common *common,
 	return 0;
 }
 
-int rsi_rrm_parse_beacon_req(struct rsi_common *common,
-			     struct sk_buff *skb,
-			     struct rsi_beacon_meas_params *params)
+int rsi_rrm_parse_beacon_req(struct rsi_common *common, struct sk_buff *skb, struct rsi_beacon_meas_params *params)
 {
 	u8 *frm = &skb->data[MIN_802_11_HDR_LEN];
 	u8 index = 0, flags = 0;
@@ -379,8 +376,7 @@ int rsi_rrm_sched_req(struct rsi_common *common)
 
 	meas_req_type = skb->data[9 + MIN_802_11_HDR_LEN];
 
-	if (skb->data[1 + MIN_802_11_HDR_LEN] ==
-	    IEEE80211_ACTION_RADIO_MEAS_REQ) {
+  if (skb->data[1 + MIN_802_11_HDR_LEN] == IEEE80211_ACTION_RADIO_MEAS_REQ) {
 		common->priv->rrm_state = RRM_REQ_SENT;
 		common->priv->rrm_enq_state = 1;
 		switch (meas_req_type) {
@@ -414,9 +410,7 @@ int rsi_rrm_sched_req(struct rsi_common *common)
 	return 0;
 }
 
-int rsi_rrm_parse_radio_action_frame(struct rsi_common *common,
-				     u8 *rx_rrm,
-				     s32 msg_len)
+int rsi_rrm_parse_radio_action_frame(struct rsi_common *common, u8 *rx_rrm, s32 msg_len)
 {
 	struct rsi_hw *adapter = common->priv;
 	struct sk_buff *skb = NULL;
@@ -443,9 +437,7 @@ int rsi_rrm_parse_radio_action_frame(struct rsi_common *common,
 	return 0;
 }
 
-int rsi_rrm_parse_spectrum_action_frame(struct rsi_common *common,
-					struct ieee80211_hdr *tmp_hdr,
-					u8 *frm)
+int rsi_rrm_parse_spectrum_action_frame(struct rsi_common *common, struct ieee80211_hdr *tmp_hdr, u8 *frm)
 {
 	return 0;
 }
@@ -453,17 +445,34 @@ int rsi_rrm_parse_spectrum_action_frame(struct rsi_common *common,
 int rsi_prepare_channel_load_rpt(struct rsi_common *common, u8 *msg, int len)
 {
 	struct rsi_hw *adapter = common->priv;
+#ifndef CONFIG_STA_PLUS_AP
 	struct ieee80211_vif *vif = adapter->vifs[0];
+#else
+  struct ieee80211_vif *vif      = NULL;
+#endif
+
 #ifndef RSI_DEBUG_RRM
 	u8 *rrm = NULL, tmp[6];
 #else
+#ifndef CONFIG_STA_PLUS_AP
 	struct ieee80211_bss_conf *bss = &vif->bss_conf;
+#else
+  struct ieee80211_bss_conf *bss = NULL;
+#endif
 #endif
 	u8 frame_len, chload_rpt_len;
 	struct sk_buff *skb = NULL;
 	struct channel_load_rpt *chload_rpt;
 	struct ieee80211_tx_info *info;
 
+#ifdef CONFIG_STA_PLUS_AP
+  vif = rsi_get_sta_vif(adapter);
+  if (!vif)
+    return -ENODEV;
+#ifdef RSI_DEBUG_RRM
+  bss = &vif->bss_conf;
+#endif
+#endif
 	/* preparing on air channel load report */
 	frame_len = sizeof(struct channel_load_rpt);
 	skb = dev_alloc_skb(frame_len + DRV_HDR_SIZE);
@@ -479,8 +488,7 @@ int rsi_prepare_channel_load_rpt(struct rsi_common *common, u8 *msg, int len)
 	chload_rpt->mac_hdr.frame_control = IEEE80211_STYPE_ACTION;
 	chload_rpt->mac_hdr.duration_id = 0;
 	chload_rpt->mac_hdr.seq_ctrl = 0;
-	ether_addr_copy(chload_rpt->mac_hdr.addr1,
-			&common->rrm_pending_frame->data[10]);
+  ether_addr_copy(chload_rpt->mac_hdr.addr1, &common->rrm_pending_frame->data[10]);
 	ether_addr_copy(chload_rpt->mac_hdr.addr2, common->mac_addr);
 	ether_addr_copy(chload_rpt->mac_hdr.addr3, bss->bssid);
 	chload_rpt->action_body.dialog_token = 2;/* fill dialog_token*/
@@ -488,28 +496,21 @@ int rsi_prepare_channel_load_rpt(struct rsi_common *common, u8 *msg, int len)
 	chload_rpt->channel_num = common->chload_meas.channel_num;
 #else
 	rrm = (u8 *)common->rrm_pending_frame->data;
-	memcpy(&chload_rpt->mac_hdr,
-	       (struct ieee80211_min_hdr *)common->rrm_pending_frame->data,
-	       MIN_802_11_HDR_LEN);
+  memcpy(&chload_rpt->mac_hdr, (struct ieee80211_min_hdr *)common->rrm_pending_frame->data, MIN_802_11_HDR_LEN);
 	ether_addr_copy(tmp, chload_rpt->mac_hdr.addr1);
 	ether_addr_copy(chload_rpt->mac_hdr.addr1, chload_rpt->mac_hdr.addr2);
 	ether_addr_copy(chload_rpt->mac_hdr.addr2, tmp);
 	ether_addr_copy(chload_rpt->mac_hdr.addr3, chload_rpt->mac_hdr.addr1);
 
-	chload_rpt->action_body.dialog_token =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 2];
-	chload_rpt->regulatory_class =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 10];
-	chload_rpt->channel_num =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 11];
+  chload_rpt->action_body.dialog_token = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 2];
+  chload_rpt->regulatory_class         = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 10];
+  chload_rpt->channel_num              = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 11];
 #endif
 	chload_rpt->rmelem.element_id = MEAS_RPT;
-	chload_rpt_len =
-		sizeof(*chload_rpt) - sizeof(struct ieee80211_basic_hdr);
+  chload_rpt_len                = sizeof(*chload_rpt) - sizeof(struct ieee80211_basic_hdr);
 	chload_rpt_len -= sizeof(struct wl_action);
 	chload_rpt_len -= sizeof(struct rm_element);
-	chload_rpt->rmelem.length = sizeof(struct rm_element) - 2 +
-				    chload_rpt_len;
+  chload_rpt->rmelem.length          = sizeof(struct rm_element) - 2 + chload_rpt_len;
 	chload_rpt->rmelem.token = 0;
 	chload_rpt->rmelem.type = 3;
 	chload_rpt->actual_meas_start_time = *(u64 *)&msg[16];
@@ -571,8 +572,7 @@ int rsi_prepare_frame_rpt(struct rsi_common *common, u8 *msg, int len)
 	frame_rpt->mac_hdr.frame_control = IEEE80211_STYPE_ACTION;
 	frame_rpt->mac_hdr.duration_id = 0;
 	frame_rpt->mac_hdr.seq_ctrl = 0;
-	ether_addr_copy(frame_rpt->mac_hdr.addr1,
-			&common->rrm_pending_frame->data[10]);
+  ether_addr_copy(frame_rpt->mac_hdr.addr1, &common->rrm_pending_frame->data[10]);
 	ether_addr_copy(frame_rpt->mac_hdr.addr2, common->mac_addr);
 	ether_addr_copy(frame_rpt->mac_hdr.addr3, bss->bssid);
 	frame_rpt->action_body.dialog_token = 2;/*fill dialog_token*/
@@ -581,19 +581,14 @@ int rsi_prepare_frame_rpt(struct rsi_common *common, u8 *msg, int len)
 	frame_rpt->channel_num = common->frame_meas.mp.channel_num;
 #else
 	rrm = (u8 *)common->rrm_pending_frame;
-	memcpy(&frame_rpt->mac_hdr,
-	       (struct ieee80211_hdr *)common->rrm_pending_frame->data,
-	       MIN_802_11_HDR_LEN);
+  memcpy(&frame_rpt->mac_hdr, (struct ieee80211_hdr *)common->rrm_pending_frame->data, MIN_802_11_HDR_LEN);
 	ether_addr_copy(tmp, frame_rpt->mac_hdr.addr1);
 	ether_addr_copy(frame_rpt->mac_hdr.addr1, frame_rpt->mac_hdr.addr2);
 	ether_addr_copy(frame_rpt->mac_hdr.addr2, tmp);
 	ether_addr_copy(frame_rpt->mac_hdr.addr3, frame_rpt->mac_hdr.addr1);
-	frame_rpt->action_body.dialog_token =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 2];
-	frame_rpt->regulatory_class =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 10];
-	frame_rpt->channel_num =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 11];
+  frame_rpt->action_body.dialog_token = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 2];
+  frame_rpt->regulatory_class         = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 10];
+  frame_rpt->channel_num              = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 11];
 
 #endif
 	frame_rpt->rmelem.element_id = MEAS_RPT;
@@ -607,8 +602,7 @@ int rsi_prepare_frame_rpt(struct rsi_common *common, u8 *msg, int len)
 	frame_rpt_len -= sizeof(struct wl_action);
 	frame_rpt_len -= sizeof(struct rm_element);
 
-	frame_rpt->rmelem.length = sizeof(struct rm_element) - 2 +
-				    frame_rpt_len;
+  frame_rpt->rmelem.length = sizeof(struct rm_element) - 2 + frame_rpt_len;
 	frame_rpt->length = (19 * frame_entries);
 
 	memcpy(&frame_rpt->tx_addr[0], &msg[24], 2);
@@ -650,7 +644,11 @@ int rsi_prepare_frame_rpt(struct rsi_common *common, u8 *msg, int len)
 	rsi_hex_dump(ERR_ZONE, "frame report dump", skb->data, frame_len);
 	skb_put(skb, sizeof(*frame_rpt));
 	info = IEEE80211_SKB_CB(skb);
-	info->control.vif = common->priv->vifs[0];
+#ifndef CONFIG_STA_PLUS_AP
+   info->control.vif = common->priv->vifs[0];
+#else
+  info->control.vif                   = rsi_get_first_valid_vif(common->priv);
+#endif
 	rsi_core_xmit(common, skb);
 	dev_kfree_skb(common->rrm_pending_frame);
 
@@ -701,8 +699,7 @@ int rsi_prepare_beacon_rpt(struct rsi_common *common, u8 *msg, int len)
 	bcon_rpt->mac_hdr.frame_control = IEEE80211_STYPE_ACTION;
 	bcon_rpt->mac_hdr.duration_id = 0;
 	bcon_rpt->mac_hdr.seq_ctrl = 0;
-	ether_addr_copy(bcon_rpt->mac_hdr.addr1,
-			&common->rrm_pending_frame->data[10]);
+  ether_addr_copy(bcon_rpt->mac_hdr.addr1, &common->rrm_pending_frame->data[10]);
 	ether_addr_copy(bcon_rpt->mac_hdr.addr2, common->mac_addr);
 	ether_addr_copy(bcon_rpt->mac_hdr.addr3, bss->bssid);
 	bcon_rpt->action_body.dialog_token = 2;/*fill dialog_token*/
@@ -712,21 +709,16 @@ int rsi_prepare_beacon_rpt(struct rsi_common *common, u8 *msg, int len)
 #else
 
 	rrm = (u8 *)common->rrm_pending_frame->data;
-	memcpy(&bcon_rpt->mac_hdr,
-	       (struct ieee80211_hdr *)common->rrm_pending_frame->data,
-	       MIN_802_11_HDR_LEN);
+  memcpy(&bcon_rpt->mac_hdr, (struct ieee80211_hdr *)common->rrm_pending_frame->data, MIN_802_11_HDR_LEN);
 	ether_addr_copy(tmp, bcon_rpt->mac_hdr.addr1);
 	ether_addr_copy(bcon_rpt->mac_hdr.addr1, bcon_rpt->mac_hdr.addr2);
 	ether_addr_copy(bcon_rpt->mac_hdr.addr2, tmp);
 	ether_addr_copy(bcon_rpt->mac_hdr.addr3, bcon_rpt->mac_hdr.addr1);
 
-	bcon_rpt->action_body.dialog_token =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 2];
-	bcon_rpt->regulatory_class =
-		common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 10];
+  bcon_rpt->action_body.dialog_token = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 2];
+  bcon_rpt->regulatory_class         = common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 10];
 	bcon_rpt->channel_num = rrm[MIN_802_11_HDR_LEN + 11];
-	memcpy(&bcon_rpt->bssid,
-	       &common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 17], 6);
+  memcpy(&bcon_rpt->bssid, &common->rrm_pending_frame->data[MIN_802_11_HDR_LEN + 17], 6);
 #endif
 	bcon_rpt->rmelem.element_id = MEAS_RPT;
 	bcon_rpt->rmelem.token = 0;
@@ -736,8 +728,7 @@ int rsi_prepare_beacon_rpt(struct rsi_common *common, u8 *msg, int len)
 	bcon_rpt_len -= sizeof(struct wl_action);
 	bcon_rpt_len -= sizeof(struct rm_element);
 
-	bcon_rpt->rmelem.length = sizeof(struct rm_element) - 2 +
-				    bcon_rpt_len;
+  bcon_rpt->rmelem.length          = sizeof(struct rm_element) - 2 + bcon_rpt_len;
 	bcon_rpt->actual_meas_start_time = *(u64 *)&msg[24];
 	bcon_rpt->meas_duration = *(u16 *)&msg[10];
 	bcon_rpt->reported_frame_info = msg[16];
@@ -751,7 +742,11 @@ int rsi_prepare_beacon_rpt(struct rsi_common *common, u8 *msg, int len)
 	rsi_hex_dump(ERR_ZONE, "BEACON REPORT ", skb->data, skb->len);
 	skb_put(skb, sizeof(*bcon_rpt));
 	info = IEEE80211_SKB_CB(skb);
-	info->control.vif = common->priv->vifs[0];
+#ifndef CONFIG_STA_PLUS_AP
+   info->control.vif = common->priv->vifs[0];
+#else
+  info->control.vif = rsi_get_first_valid_vif(common->priv);
+#endif
 	rsi_core_xmit(common, skb);
 	dev_kfree_skb(common->rrm_pending_frame);
 
@@ -784,4 +779,3 @@ void rsi_rrm_recv_cmd_frame(struct rsi_common *common, u8 *msg, int len)
 		redpine_dbg(INFO_ZONE, "Invalid cmd frame received\n");
 	}
 }
-

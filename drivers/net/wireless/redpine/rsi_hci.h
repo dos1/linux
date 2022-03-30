@@ -82,10 +82,7 @@ enum {
 	__RSI_USER_C_MAX,
 };
 
-enum {
-	BT_DEVICE_NOT_READY = 0,
-	BT_DEVICE_READY
-};
+enum { BT_DEVICE_NOT_READY = 0, BT_DEVICE_READY };
 
 struct rsi_hci_adapter {
 	struct rsi_common *priv;
@@ -136,6 +133,20 @@ struct rsi_bt_rfmode_frame {
 #endif
 	u8 reserved;
 };
+
+typedef struct bt_stats_s {
+  unsigned short crc_pass;
+  unsigned short crc_fail;
+  unsigned short tx_aborts;
+  unsigned short cca_stk;
+  unsigned short cca_idle;
+  unsigned short fls_rx_start;
+  unsigned short rx_phy_abort;
+  unsigned short tx_dones;
+  unsigned short fifo_occupied;
+  signed short int rssi;
+  unsigned short id_pkts_rcvd;
+} bt_stats_t;
 
 int rsi_hci_attach (struct rsi_common *common);
 void rsi_hci_detach(struct rsi_common *common);

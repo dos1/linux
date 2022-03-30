@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include "rsi_main.h"
 #include "rsi_coex.h"
@@ -94,13 +78,11 @@ static void rsi_coex_sched_tx_pkts(struct rsi_coex_ctrl_block *coex_cb)
 static void rsi_coex_scheduler_thread(struct rsi_common *common)
 {
 	int status = 0;
-	struct rsi_coex_ctrl_block *coex_cb =
-		(struct rsi_coex_ctrl_block *)common->coex_cb;
+  struct rsi_coex_ctrl_block *coex_cb = (struct rsi_coex_ctrl_block *)common->coex_cb;
 	u32 timeout = EVENT_WAIT_FOREVER;
 
 	do {
-		status = rsi_wait_event(&coex_cb->coex_tx_thread.event,
-					timeout);
+    status = rsi_wait_event(&coex_cb->coex_tx_thread.event, timeout);
 		if (status < 0)
 			break;
 		rsi_reset_event(&coex_cb->coex_tx_thread.event);
@@ -131,13 +113,10 @@ int rsi_coex_recv_pkt(struct rsi_common *common, u8 *msg)
 	return 0;
 }
 
-int rsi_coex_send_pkt(void *priv,
-		      struct sk_buff *skb,
-		      u8 hal_queue)
+int rsi_coex_send_pkt(void *priv, struct sk_buff *skb, u8 hal_queue)
 {
 	struct rsi_common *common = (struct rsi_common *)priv;
-	struct rsi_coex_ctrl_block *coex_cb =
-		(struct rsi_coex_ctrl_block *)common->coex_cb;
+  struct rsi_coex_ctrl_block *coex_cb = (struct rsi_coex_ctrl_block *)common->coex_cb;
 	struct skb_info *tx_params = NULL;
 	int status = 0;
 
@@ -201,8 +180,7 @@ void rsi_coex_deinit(struct rsi_common *common)
 {
 	int cnt;
 
-	struct rsi_coex_ctrl_block *coex_cb =
-		(struct rsi_coex_ctrl_block *)common->coex_cb;
+  struct rsi_coex_ctrl_block *coex_cb = (struct rsi_coex_ctrl_block *)common->coex_cb;
 
 	/* Stop the coex tx thread */
 	rsi_kill_thread(&coex_cb->coex_tx_thread);

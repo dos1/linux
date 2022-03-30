@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include <linux/module.h>
 #include "rsi_sdio.h"
@@ -34,7 +18,6 @@
 #include "rsi_hal.h"
 #include "rsi_hci.h"
 #include "rsi_mgmt.h"
-
 
 /**
  * rsi_sdio_set_cmd52_arg() - This function prepares cmd 52 read/write arg.
@@ -78,10 +61,7 @@ static int rsi_sdio_validate_clock(int sdio_clock)
  *
  * Return: Write status.
  */
-static int rsi_cmd52writebyte(struct mmc_card *card,
-			      u32 address,
-			      u8 byte,
-			      bool expect_resp) 
+static int rsi_cmd52writebyte(struct mmc_card *card, u32 address, u8 byte, bool expect_resp)
 {
 	struct mmc_command io_cmd;
 	u32 arg;
@@ -105,10 +85,7 @@ static int rsi_cmd52writebyte(struct mmc_card *card,
  *
  * Return: Read status.
  */
-static int rsi_cmd52readbyte(struct mmc_card *card,
-			     u32 address,
-			     u8 *byte,
-			     bool expect_resp)
+static int rsi_cmd52readbyte(struct mmc_card *card, u32 address, u8 *byte, bool expect_resp)
 {
 	struct mmc_command io_cmd;
 	u32 arg;
@@ -138,11 +115,7 @@ static int rsi_cmd52readbyte(struct mmc_card *card,
  *
  * Return: err: command status as 0 or -1.
  */
-static int rsi_issue_sdiocommand(struct sdio_func *func,
-				 u32 opcode,
-				 u32 arg,
-				 u32 flags,
-				 u32 *resp)
+static int rsi_issue_sdiocommand(struct sdio_func *func, u32 opcode, u32 arg, u32 flags, u32 *resp)
 {
 	struct mmc_command cmd;
 	struct mmc_host *host;
@@ -172,8 +145,7 @@ static int rsi_issue_sdiocommand(struct sdio_func *func,
 static void rsi_handle_interrupt(struct sdio_func *function)
 {
 	struct rsi_hw *adapter = sdio_get_drvdata(function);
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 
 	if (adapter->priv->fsm_state == FSM_FW_NOT_LOADED)
 		return;
@@ -201,27 +173,15 @@ static void rsi_gspi_init(struct rsi_hw *adapter)
 	/* clock_phase [11] */
 	gspi_ctrl_reg0_val |= 0x000; 
 	/* Initializing GSPI for ULP read/writes */
-	rsi_sdio_master_reg_write(adapter,
-				  GSPI_CTRL_REG0,
-				  gspi_ctrl_reg0_val,
-				  2);
+  rsi_sdio_master_reg_write(adapter, GSPI_CTRL_REG0, gspi_ctrl_reg0_val, 2);
 }
 
 static void ulp_read_write(struct rsi_hw *adapter, u16 addr, u16 *data, u16 len_in_bits)
 {
-	rsi_sdio_master_reg_write(adapter,
-				  GSPI_DATA_REG1,
-				  ((addr << 6) | (data[1] & 0x3f)),
-				  2);
-	rsi_sdio_master_reg_write(adapter,
-				  GSPI_DATA_REG0,
-				  *(u16 *)&data[0],
-				  2);
+  rsi_sdio_master_reg_write(adapter, GSPI_DATA_REG1, ((addr << 6) | (data[1] & 0x3f)), 2);
+  rsi_sdio_master_reg_write(adapter, GSPI_DATA_REG0, *(u16 *)&data[0], 2);
 	rsi_gspi_init(adapter);
-	rsi_sdio_master_reg_write(adapter,
-				  GSPI_CTRL_REG1,
-				  ((len_in_bits - 1) | GSPI_TRIG),
-				  2);
+  rsi_sdio_master_reg_write(adapter, GSPI_CTRL_REG1, ((len_in_bits - 1) | GSPI_TRIG), 2);
 	msleep(10);
 }
 
@@ -275,7 +235,7 @@ static void rsi_reset_chip(struct rsi_hw *adapter)
 	/* This msleep will ensure TA processor to go to hold and any pending dma
 	 * transfers to rf spi in device to finish */
 	msleep(100);
-	if (adapter->device_model == RSI_DEV_9116) {
+	if (DEV_MODEL_9116) {
 		if ((rsi_sdio_master_reg_write(adapter,
 					       NWP_WWD_INTERRUPT_TIMER,
 						5, 4)) < 0) {
@@ -314,7 +274,6 @@ static void rsi_reset_chip(struct rsi_hw *adapter)
 err:
 	kfree(data);
 	return;
-
 }
 
 /**
@@ -335,9 +294,7 @@ static void rsi_reset_card(struct sdio_func *pfunction)
 
 #ifdef CONFIG_CARACALLA_BOARD
 	/* Reset chip */
-	err = rsi_cmd52writebyte(pfunction->card,
-				 SDIO_CCCR_ABORT,
-				 (1 << 3), true);
+  err = rsi_cmd52writebyte(pfunction->card, SDIO_CCCR_ABORT, (1 << 3), true);
 
 	/* Card will not send any response as it is getting reset immediately
 	 * Hence expect a timeout status from host controller
@@ -381,11 +338,7 @@ static void rsi_reset_card(struct sdio_func *pfunction)
 	host->ios.chip_select = MMC_CS_HIGH;
 	host->ops->set_ios(host, &host->ios);
 	msleep(cmd_delay);
-	err = rsi_issue_sdiocommand(pfunction,
-				    MMC_GO_IDLE_STATE,
-				    0,
-				    (MMC_RSP_NONE | MMC_CMD_BC),
-				    NULL);
+  err                   = rsi_issue_sdiocommand(pfunction, MMC_GO_IDLE_STATE, 0, (MMC_RSP_NONE | MMC_CMD_BC), NULL);
 	host->ios.chip_select = MMC_CS_DONTCARE;
 	host->ops->set_ios(host, &host->ios);
 	msleep(cmd_delay);
@@ -458,11 +411,7 @@ static void rsi_reset_card(struct sdio_func *pfunction)
 	host->ops->set_ios(host, &host->ios);
 
 	/* Issue CMD7, select card  */
-	err = rsi_issue_sdiocommand(pfunction,
-				    MMC_SELECT_CARD,
-				    (rca << 16),
-				    (MMC_RSP_R1 | MMC_CMD_AC),
-				    NULL);
+  err = rsi_issue_sdiocommand(pfunction, MMC_SELECT_CARD, (rca << 16), (MMC_RSP_R1 | MMC_CMD_AC), NULL);
 	if (err) {
 		redpine_dbg(ERR_ZONE, "%s: CMD7 failed : %d\n", __func__, err);
 		return;
@@ -530,8 +479,7 @@ static void rsi_reset_card(struct sdio_func *pfunction)
  */
 static void rsi_setclock(struct rsi_hw *adapter, u32 freq)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	struct mmc_host *host = dev->pfunction->card->host;
 	u32 clock;
 
@@ -551,8 +499,7 @@ static void rsi_setclock(struct rsi_hw *adapter, u32 freq)
  */
 static int rsi_setblocklength(struct rsi_hw *adapter, u32 length)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	int status;
 
 	redpine_dbg(INIT_ZONE, "%s: Setting the block length\n", __func__);
@@ -573,8 +520,7 @@ static int rsi_setblocklength(struct rsi_hw *adapter, u32 length)
  */
 static int rsi_setupcard(struct rsi_hw *adapter)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	int status = 0;
 
 	rsi_setclock(adapter, (rsi_sdio_validate_clock(sdio_clock) * 1000));
@@ -597,12 +543,9 @@ static int rsi_setupcard(struct rsi_hw *adapter)
  *
  * Return: 0 on success, -1 on failure.
  */
-int rsi_sdio_read_register(struct rsi_hw *adapter,
-			   u32 addr,
-			   u8 *data)
+int rsi_sdio_read_register(struct rsi_hw *adapter, u32 addr, u8 *data)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	u8 fun_num = 0;
 	int status;
 
@@ -630,13 +573,9 @@ int rsi_sdio_read_register(struct rsi_hw *adapter,
  *
  * Return: 0 on success, -1 on failure.
  */
-int rsi_sdio_write_register(struct rsi_hw *adapter,
-			    u8 function,
-			    u32 addr,
-			    u8 *data)
+int rsi_sdio_write_register(struct rsi_hw *adapter, u8 function, u32 addr, u8 *data)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	int status = 0;
 
 	if (likely(dev->sdio_irq_task != current))
@@ -664,11 +603,7 @@ void rsi_sdio_ack_intr(struct rsi_hw *adapter, u8 int_bit)
 {
 	int status;
 
-	status = rsi_sdio_write_register(adapter,
-					 1,
-					 (SDIO_FUN1_INTR_CLR_REG |
-					  SD_REQUEST_MASTER),
-					 &int_bit);
+  status = rsi_sdio_write_register(adapter, 1, (SDIO_FUN1_INTR_CLR_REG | SD_REQUEST_MASTER), &int_bit);
 	if (status)
 		redpine_dbg(ERR_ZONE, "%s: unable to send ack\n", __func__);
 }
@@ -683,13 +618,9 @@ void rsi_sdio_ack_intr(struct rsi_hw *adapter, u8 int_bit)
  *
  * Return: 0 on success, -1 on failure.
  */
-int rsi_sdio_read_register_multiple(struct rsi_hw *adapter,
-				    u32 addr,
-				    u8 *data,
-				    u16 count)
+int rsi_sdio_read_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	u32 status = 0;
 
 	if (likely(dev->sdio_irq_task != current))
@@ -715,13 +646,9 @@ int rsi_sdio_read_register_multiple(struct rsi_hw *adapter,
  *
  * Return: 0 on success, -1 on failure.
  */
-int rsi_sdio_write_register_multiple(struct rsi_hw *adapter,
-				     u32 addr,
-				     u8 *data,
-				     u16 count)
+int rsi_sdio_write_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	int status;
 
 	if (dev->write_fail > 1) {
@@ -744,11 +671,21 @@ int rsi_sdio_write_register_multiple(struct rsi_hw *adapter,
 	if (likely(dev->sdio_irq_task != current))
 		sdio_release_host(dev->pfunction);
 
+#if defined(COMMAND_84_ERROR_WAR)
+  if (status && status != -84) {
+#else
 	if (status) {
+#endif
 		redpine_dbg(ERR_ZONE, "%s: Synch Cmd53 write failed %d\n",
 			__func__, status);
 		dev->write_fail = 2;
 	} else {
+#if defined(COMMAND_84_ERROR_WAR)
+    if (status == -84) {
+      printk("Continue Even after -84 error \n");
+      status = 0;
+    }
+#endif
 		memcpy(dev->prev_desc, data, FRAME_DESC_SZ);
 	}
 	return status;
@@ -811,9 +748,7 @@ int rsi_sdio_load_data_master_write(struct rsi_hw *adapter,
 
 	if (instructions_sz % block_size) {
 		memset(temp_buf, 0, block_size);
-		memcpy(temp_buf,
-		       ta_firmware + offset,
-		       instructions_sz % block_size);
+    memcpy(temp_buf, ta_firmware + offset, instructions_sz % block_size);
 		lsb_address = (u16)base_address;
 		if (rsi_sdio_write_register_multiple(adapter,
 						lsb_address | SD_REQUEST_MASTER,
@@ -831,11 +766,9 @@ int rsi_sdio_load_data_master_write(struct rsi_hw *adapter,
 err:
 	kfree(temp_buf);
 	return -EIO;
-
 }
 
-int rsi_sdio_master_reg_read(struct rsi_hw *adapter, u32 addr,
-			     u32 *read_buf, u16 size)
+int rsi_sdio_master_reg_read(struct rsi_hw *adapter, u32 addr, u32 *read_buf, u16 size)
 {
 	u32 *data = NULL;
 	u16 ms_addr = 0;
@@ -894,10 +827,7 @@ int rsi_sdio_master_reg_read(struct rsi_hw *adapter, u32 addr,
 	return 0;
 }
 
-int rsi_sdio_master_reg_write(struct rsi_hw *adapter,
-			      unsigned long addr,
-			      unsigned long data,
-			      u16 size)
+int rsi_sdio_master_reg_write(struct rsi_hw *adapter, unsigned long addr, unsigned long data, u16 size)
 {
 	unsigned long *data_aligned;
 
@@ -951,12 +881,9 @@ int rsi_sdio_master_reg_write(struct rsi_hw *adapter,
  *
  * Return: 0 on success, -1 on failure.
  */
-int rsi_sdio_host_intf_write_pkt(struct rsi_hw *adapter,
-				 u8 *pkt,
-				 u32 len)
+int rsi_sdio_host_intf_write_pkt(struct rsi_hw *adapter, u8 *pkt, u32 len)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	u32 block_size = dev->tx_blk_size;
 	u32 num_blocks, address, length;
 	u32 queueno;
@@ -1016,9 +943,7 @@ int rsi_sdio_host_intf_write_pkt(struct rsi_hw *adapter,
  *
  * Return: 0 on success, -1 on failure.
  */
-int rsi_sdio_host_intf_read_pkt(struct rsi_hw *adapter,
-				u8 *pkt,
-				u32 length)
+int rsi_sdio_host_intf_read_pkt(struct rsi_hw *adapter, u8 *pkt, u32 length)
 {
 	int status = -EINVAL;
 
@@ -1108,7 +1033,6 @@ static int rsi_sdio_ta_reset_ops(struct rsi_hw *adapter)
 err:
 	kfree(data);
 	return -EINVAL;
-
 }
 
 int rsi_sdio_reinit_device(struct rsi_hw *adapter)
@@ -1147,8 +1071,7 @@ int rsi_sdio_reinit_device(struct rsi_hw *adapter)
  * Return: 0 on success, -1 on failure.
  */
 
-static int rsi_init_sdio_interface(struct rsi_hw *adapter,
-				   struct sdio_func *pfunction)
+static int rsi_init_sdio_interface(struct rsi_hw *adapter, struct sdio_func *pfunction)
 {
 	struct rsi_91x_sdiodev *rsi_91x_dev;
 	int status = -ENOMEM;
@@ -1211,6 +1134,7 @@ static struct rsi_host_intf_ops sdio_host_intf_ops = {
 	.read_pkt		= rsi_sdio_host_intf_read_pkt,
 	.master_access_msword	= rsi_sdio_master_access_msword,
 	.master_reg_read	= rsi_sdio_master_reg_read,
+  .reg_read               = rsi_sdio_read_register,
 	.master_reg_write	= rsi_sdio_master_reg_write,
 	.read_reg_multiple	= rsi_sdio_read_register_multiple,
 	.write_reg_multiple	= rsi_sdio_write_register_multiple,
@@ -1229,8 +1153,7 @@ static struct rsi_host_intf_ops sdio_host_intf_ops = {
  *
  * Return: 0 on success, 1 on failure.
  */
-static int rsi_probe(struct sdio_func *pfunction,
-		     const struct sdio_device_id *id)
+static int rsi_probe(struct sdio_func *pfunction, const struct sdio_device_id *id)
 {
 	struct rsi_hw *adapter;
 	struct rsi_91x_sdiodev *sdev;
@@ -1239,6 +1162,9 @@ static int rsi_probe(struct sdio_func *pfunction,
 
 	redpine_dbg(INIT_ZONE, "%s: Init function called\n", __func__);
 
+  if (redpine_ps_sleep_type == 0) {
+    redpine_ps_sleep_type = ULP_POWER_SAVE;
+  }
 	adapter = redpine_91x_init();
 	if (!adapter) {
 		redpine_dbg(ERR_ZONE, "%s: Failed to init os intf ops\n",
@@ -1411,8 +1337,7 @@ static void rsi_disconnect(struct sdio_func *pfunction)
 #ifdef CONFIG_PM
 static int rsi_set_sdio_pm_caps(struct rsi_hw *adapter)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	struct sdio_func *func = dev->pfunction;
 	int ret;
 	mmc_pm_flag_t flags;
@@ -1528,8 +1453,7 @@ static int rsi_suspend(struct device *dev)
 	struct sdio_func *pfunction = dev_to_sdio_func(dev);
 	struct rsi_hw *adapter = sdio_get_drvdata(pfunction);
 	struct rsi_common *common = adapter->priv;
-	struct rsi_91x_sdiodev *sdev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *sdev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	u16 sleep_time = 200;
 	redpine_dbg(ERR_ZONE, "SDIO Bus suspend ===>\n");
 
@@ -1552,12 +1476,10 @@ CHECK_AGAIN:
 			common->suspend_in_prog = true;
 			up(&common->tx_access_lock);
 			mutex_unlock(&common->rx_lock);
-	}else
-	{
+  } else {
 		up(&common->tx_access_lock);
 		mutex_unlock(&common->rx_lock);
-		if(sleep_time)
-		{
+    if (sleep_time) {
 			msleep(10);
 			sleep_time -=10;
 			goto CHECK_AGAIN;

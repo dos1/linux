@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include "rsi_mgmt.h"
 #include "rsi_common.h"
@@ -78,8 +62,7 @@ static bool rsi_recalculate_weights(struct rsi_common *common)
 		if (q_len) {
 			if (tx_qinfo[ii].pkt_contended) {
 				tx_qinfo[ii].weight =
-				((tx_qinfo[ii].weight > common->min_weight) ?
-				 tx_qinfo[ii].weight - common->min_weight : 0);
+          ((tx_qinfo[ii].weight > common->min_weight) ? tx_qinfo[ii].weight - common->min_weight : 0);
 			} else {
 				tx_qinfo[ii].pkt_contended = 1;
 				tx_qinfo[ii].weight = tx_qinfo[ii].wme_params;
@@ -123,10 +106,15 @@ static u32 rsi_get_num_pkts_dequeue(struct rsi_common *common, u8 q_num)
 		return 0;
 
 	do {
+#ifndef CONFIG_STA_PLUS_AP
 		r_txop = ieee80211_generic_frame_duration(adapter->hw,
 					adapter->vifs[adapter->sc_nvifs - 1],
 					common->band,
-					skb->len, &rate);
+                                              skb->len,
+                                              &rate);
+#else
+    r_txop = ieee80211_generic_frame_duration(adapter->hw, rsi_get_sta_vif(adapter), common->band, skb->len, &rate);
+#endif
 		txop -= le16_to_cpu(r_txop);
 		pkt_cnt += 1;
 		/*checking if pkts are still there*/
@@ -164,10 +152,12 @@ static u8 rsi_core_determine_hal_queue(struct rsi_common *common)
 		return q_num;
 	}
 
+#ifndef CONFIG_STA_PLUS_AP
 	if (common->hw_data_qs_blocked) {
 		redpine_dbg(INFO_ZONE, "%s: data queue blocked\n", __func__);
 		return q_num;
 	}
+#endif
 
 	if (common->pkt_cnt != 0) {
 		--common->pkt_cnt;
@@ -184,9 +174,7 @@ get_queue_num:
 	/* Selecting the queue with least back off */
 	for (; ii < NUM_EDCA_QUEUES; ii++) {
 		q_len = skb_queue_len(&common->tx_queue[ii]);
-		if (((common->tx_qinfo[ii].pkt_contended) &&
-		     (common->tx_qinfo[ii].weight < common->min_weight)) &&
-		      q_len) {
+    if (((common->tx_qinfo[ii].pkt_contended) && (common->tx_qinfo[ii].weight < common->min_weight)) && q_len) {
 			common->min_weight = common->tx_qinfo[ii].weight;
 			q_num = ii;
 		}
@@ -215,6 +203,9 @@ get_queue_num:
 	q_len = skb_queue_len(&common->tx_queue[q_num]);
 
 	if (q_num == VO_Q || q_num == VI_Q) {
+#ifdef CONFIG_STA_PLUS_AP
+    /* This executes only for STA queues */
+#endif
 		common->pkt_cnt = rsi_get_num_pkts_dequeue(common, q_num);
 		common->pkt_cnt -= 1;
 	}
@@ -291,6 +282,13 @@ void rsi_core_qos_processor(struct rsi_common *common)
 		if (q_num == INVALID_QUEUE)
 			break;
 
+#ifdef CONFIG_STA_PLUS_AP
+    if (common->hw_data_qs_blocked && (q_num < NUM_STA_DATA_QUEUES)) {
+      redpine_dbg(DATA_TX_ZONE, "%s: sta data queues blocked\n", __func__);
+      break;
+    }
+#endif
+
 		if (common->hibernate_resume)
 			break;
 
@@ -325,8 +323,7 @@ void rsi_core_qos_processor(struct rsi_common *common)
 			mutex_unlock(&common->tx_lock);
 			break;
 		}
-		if ((adapter->peer_notify) &&
-		    (skb->data[2] == PEER_NOTIFY)) {
+    if ((adapter->peer_notify) && (skb->data[2] == PEER_NOTIFY)) {
 			adapter->peer_notify = false;
 			redpine_dbg(INFO_ZONE, "%s RESET PEER_NOTIFY\n", __func__);
 		}
@@ -413,11 +410,16 @@ struct rsi_sta *rsi_find_sta(struct rsi_common *common, u8 *mac_addr)
 {
 	int i;
 
+#ifndef CONFIG_STA_PLUS_AP
 	for (i = 0; i < common->max_stations; i++) {
+#else
+  /* This API is called in AP mode only and index 0 is always
+	   * STA's peer(peer info in STA mode) in concurrent mode */
+  for (i = 1; i < common->max_stations; i++) {
+#endif
 		if (!common->stations[i].sta)
 			continue;
-		if (!(memcmp(common->stations[i].sta->addr,
-			     mac_addr, ETH_ALEN)))
+    if (!(memcmp(common->stations[i].sta->addr, mac_addr, ETH_ALEN)))
 			return &common->stations[i];
 	}
 	return NULL;
@@ -436,8 +438,12 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 	struct ieee80211_tx_info *info;
 	struct skb_info *tx_params;
 	struct ieee80211_hdr *wlh = NULL;
-	struct ieee80211_vif *vif = adapter->vifs[adapter->sc_nvifs - 1];
 	u8 q_num, tid = 0;
+#ifndef CONFIG_STA_PLUS_AP
+  struct ieee80211_vif *vif = adapter->vifs[adapter->sc_nvifs - 1];
+#else
+  struct ieee80211_vif *vif = NULL;
+#endif
 
 	if ((!skb) || (!skb->len)) {
 		redpine_dbg(ERR_ZONE, "%s: Null skb/zero Length packet\n",
@@ -461,23 +467,34 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 	tx_params = (struct skb_info *)info->driver_data;
 	wlh = (struct ieee80211_hdr *)&skb->data[0];
 
+#ifdef CONFIG_STA_PLUS_AP
+  vif = rsi_get_vif(adapter, wlh->addr2);
+  if (!vif) {
+    redpine_dbg(ERR_ZONE, "%s: vif is NULL\n", __func__);
+    goto xmit_fail;
+  }
+#endif
 	if ((ieee80211_is_mgmt(wlh->frame_control)) ||
 	    (ieee80211_is_ctl(wlh->frame_control)) ||
 	    (ieee80211_is_qos_nullfunc(wlh->frame_control))) {
 
 		if ((ieee80211_is_assoc_req(wlh->frame_control)) ||
-	 	    (ieee80211_is_reassoc_req(wlh->frame_control))) {
+		    (ieee80211_is_reassoc_req(wlh->frame_control))) {
 			struct ieee80211_bss_conf *bss = NULL;
 
-			bss = &adapter->vifs[0]->bss_conf;
+#ifndef CONFIG_STA_PLUS_AP
+       bss = &adapter->vifs[0]->bss_conf;
+#else
+      bss = &vif->bss_conf;
+#endif
 			common->eapol4_confirm = 0;
 			common->start_bgscan = 0;
-			redpine_dbg(MGMT_DEBUG_ZONE,
-				"<==== Sending ASSOCIATION REQUEST Packet ====>\n");
-			rsi_send_sta_notify_frame(common, STA_OPMODE,
-						  STA_CONNECTED,
-						  bss->bssid, bss->qos,
-						  bss->aid, 0);
+      redpine_dbg(MGMT_DEBUG_ZONE, "<==== Sending ASSOCIATION REQUEST Packet ====>\n");
+#ifndef CONFIG_STA_PLUS_AP
+      rsi_send_sta_notify_frame(common, STA_OPMODE, STA_CONNECTED, bss->bssid, bss->qos, bss->aid, 0);
+#else
+      rsi_send_sta_notify_frame(common, STA_OPMODE, STA_CONNECTED, bss->bssid, bss->qos, bss->aid, 0, vif);
+#endif
 		}
 		q_num = MGMT_SOFT_Q;
 		skb->priority = q_num;
@@ -524,19 +541,30 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 			tid = IEEE80211_NONQOS_TID;
 			skb->priority = BE_Q;
 		}
-		if ((!is_broadcast_ether_addr(wlh->addr1)) &&
-		    (!is_multicast_ether_addr(wlh->addr1))) {
-			if (vif->type == NL80211_IFTYPE_AP ||
-			    vif->type == NL80211_IFTYPE_P2P_GO) {
+#ifdef CONFIG_STA_PLUS_AP
+    if (vif->type == NL80211_IFTYPE_AP) {
+      skb->priority += 4;
+    }
+#endif
+    if ((!is_broadcast_ether_addr(wlh->addr1)) && (!is_multicast_ether_addr(wlh->addr1))) {
+      if (vif->type == NL80211_IFTYPE_AP || vif->type == NL80211_IFTYPE_P2P_GO) {
 				sta = rsi_find_sta(common, wlh->addr1);
 				if (!sta)
 					goto xmit_fail;
 				tx_params->sta_id = sta->sta_id;
 			} else if (vif->type == NL80211_IFTYPE_STATION) {
+#ifndef CONFIG_STA_PLUS_AP
 				sta = &common->stations[RSI_MAX_ASSOC_STAS];
+#else
+        sta = &common->stations[STA_PEER];
+#endif
 				if (!sta)
 					goto xmit_fail;
+#ifndef CONFIG_STA_PLUS_AP
 				tx_params->sta_id = 0;
+#else
+        tx_params->sta_id = STA_PEER;
+#endif
 			}
 		}
 
@@ -557,9 +585,7 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 			 * Start aggregation if not done for this tid
 			 * and skip this aggregating Eapol type frames
 			 */
-			if (!sta->start_tx_aggr[tid] &&
-			    !(info->control.flags &
-			      IEEE80211_TX_CTRL_PORT_CTRL_PROTO)) {
+      if (!sta->start_tx_aggr[tid] && !(info->control.flags & IEEE80211_TX_CTRL_PORT_CTRL_PROTO)) {
 				sta->start_tx_aggr[tid] = true;
 				ieee80211_start_tx_ba_session(sta->sta, tid, 0);
 			}
@@ -592,12 +618,21 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 
 		switch (q_num) {
 		case BK_Q:
+#ifdef CONFIG_STA_PLUS_AP
+      case BK_Q_AP:
+#endif
 			water_mark = BK_DATA_QUEUE_WATER_MARK;
 			break;
 		case BE_Q:
+#ifdef CONFIG_STA_PLUS_AP
+      case BE_Q_AP:
+#endif
 			water_mark = BE_DATA_QUEUE_WATER_MARK;
 			break;
 		case VI_Q:
+#ifdef CONFIG_STA_PLUS_AP
+      case VI_Q_AP:
+#endif
 			water_mark = VI_DATA_QUEUE_WATER_MARK;
 			break;
 		case VO_Q:
@@ -605,11 +640,16 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 			break;
 		}
 		if ((skb_queue_len(&common->tx_queue[q_num]) + 1) >= 
-	   	    water_mark) {
+		    water_mark) {
 			redpine_dbg(ERR_ZONE, "%s: queue %d is full\n",
 				__func__, q_num);
-			if (!ieee80211_queue_stopped(adapter->hw, WME_AC(q_num)))
-				ieee80211_stop_queue(adapter->hw, WME_AC(q_num));
+#ifndef CONFIG_STA_PLUS_AP
+       if (!ieee80211_queue_stopped(adapter->hw, WME_AC(q_num)))
+         ieee80211_stop_queue(adapter->hw, WME_AC(q_num));
+#else
+      if (!ieee80211_queue_stopped(adapter->hw, WME_AC(q_num % 4)))
+        ieee80211_stop_queue(adapter->hw, WME_AC(q_num % 4));
+#endif
 			rsi_set_event(&common->tx_thread.event);
 			goto xmit_fail;
 		}

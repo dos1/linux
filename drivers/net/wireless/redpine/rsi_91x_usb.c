@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include <linux/module.h>
 #include <linux/usb.h>
@@ -110,8 +94,12 @@ static void usb_api_blocking_completion(struct urb *urb)
 	complete(&ctx->done);
 }
 
-int usb_bulk_msg_rsi(struct usb_device *usb_dev, unsigned int pipe,
-		 void *data, int len, int *actual_length, int timeout)
+int usb_bulk_msg_rsi(struct usb_device *usb_dev,
+                     unsigned int pipe,
+                     void *data,
+                     int len,
+                     int *actual_length,
+                     int timeout)
 {
 	struct urb *urb;
 	struct usb_host_endpoint *ep;
@@ -124,15 +112,11 @@ int usb_bulk_msg_rsi(struct usb_device *usb_dev, unsigned int pipe,
 	if (!urb)
 		return -ENOMEM;
 
-	if ((ep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
-			USB_ENDPOINT_XFER_INT) {
+  if ((ep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_INT) {
 		pipe = (pipe & ~(3 << 30)) | (PIPE_INTERRUPT << 30);
-		usb_fill_int_urb(urb, usb_dev, pipe, data, len,
-				usb_api_blocking_completion, NULL,
-				ep->desc.bInterval);
+    usb_fill_int_urb(urb, usb_dev, pipe, data, len, usb_api_blocking_completion, NULL, ep->desc.bInterval);
 	} else
-		usb_fill_bulk_urb(urb, usb_dev, pipe, data, len,
-				usb_api_blocking_completion, NULL);
+    usb_fill_bulk_urb(urb, usb_dev, pipe, data, len, usb_api_blocking_completion, NULL);
 	urb->transfer_flags |= URB_ZERO_PACKET; //Added this to support USB v1.2
 	return usb_start_wait_urb(urb, timeout, actual_length);
 }
@@ -145,10 +129,7 @@ int usb_bulk_msg_rsi(struct usb_device *usb_dev, unsigned int pipe,
  *
  * Return: status: 0 on success, a negative error code on failure.
  */
-static int rsi_usb_card_write(struct rsi_hw *adapter,
-			      u8 *buf,
-			      u16 len,
-			      u32 endpoint)
+static int rsi_usb_card_write(struct rsi_hw *adapter, u8 *buf, u16 len, u32 endpoint)
 {
 	struct rsi_91x_usbdev *dev = (struct rsi_91x_usbdev *)adapter->rsi_dev;
 	int status = 0;
@@ -156,9 +137,7 @@ static int rsi_usb_card_write(struct rsi_hw *adapter,
 	int transfer = 0;
 	int ep = dev->bulkout_endpoint_addr[endpoint - 1];
 
-	if (adapter->priv->zb_fsm_state == ZB_DEVICE_READY &&
-	    (adapter->device_model == RSI_DEV_9116 ?
-	     endpoint == ZIGB_EP : endpoint == DATA_EP)) {
+  if (adapter->priv->zb_fsm_state == ZB_DEVICE_READY && (DEV_MODEL_9116 ? endpoint == ZIGB_EP : endpoint == DATA_EP)) {
 		memcpy(seg, buf, len);
 	} else {
 		memset(seg, 0, len + 128);
@@ -227,10 +206,7 @@ static int rsi_write_multiple(struct rsi_hw *adapter,
  *
  * Return: status: 0 on success, a negative error code on failure.
  */
-static int rsi_usb_reg_read(struct usb_device *usbdev,
-			    u32 reg,
-			    u32 *value,
-			    u16 len)
+static int rsi_usb_reg_read(struct usb_device *usbdev, u32 reg, u32 *value, u16 len)
 {
 	u8 *buf;
 	int status = 0;
@@ -274,10 +250,7 @@ static int rsi_usb_reg_read(struct usb_device *usbdev,
  *
  * Return: status: 0 on success, a negative error code on failure.
  */
-static int rsi_usb_reg_write(struct usb_device *usbdev,
-			     unsigned long reg,
-			     unsigned long value,
-			     u16 len)
+static int rsi_usb_reg_write(struct usb_device *usbdev, unsigned long reg, unsigned long value, u16 len)
 {
 	u8 *usb_reg_buf;
 	int status = 0;
@@ -322,10 +295,7 @@ static int rsi_usb_reg_write(struct usb_device *usbdev,
  *
  * Return: status: 0 on success, a negative error code on failure.
  */
-int rsi_usb_read_register_multiple(struct rsi_hw *adapter,
-				   u32 addr,
-				   u8 *data,
-				   u16 count)
+int rsi_usb_read_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count)
 {
 	struct rsi_91x_usbdev *dev = (struct rsi_91x_usbdev *)adapter->rsi_dev;
 	u8 *buf;
@@ -381,13 +351,9 @@ int rsi_usb_read_register_multiple(struct rsi_hw *adapter,
  *
  * Return: status: 0 on success, a negative error code on failure.
  */
-int rsi_usb_write_register_multiple(struct rsi_hw *adapter,
-				    u32 addr,
-				    u8 *data,
-				    u16 count)
+int rsi_usb_write_register_multiple(struct rsi_hw *adapter, u32 addr, u8 *data, u16 count)
 {
-	struct rsi_91x_usbdev *dev =
-		(struct rsi_91x_usbdev *)adapter->rsi_dev;
+  struct rsi_91x_usbdev *dev = (struct rsi_91x_usbdev *)adapter->rsi_dev;
 	u8 *buf;
 	u16 transfer;
 	int status = 0;
@@ -494,8 +460,7 @@ int rsi_rx_urb_submit(struct rsi_hw *adapter, u8 ep_num)
 
 	usb_fill_bulk_urb(urb,
 			dev->usbdev,
-			usb_rcvbulkpipe(dev->usbdev,
-					dev->bulkin_endpoint_addr[ep_num - 1]),
+                    usb_rcvbulkpipe(dev->usbdev, dev->bulkin_endpoint_addr[ep_num - 1]),
 			urb->transfer_buffer,
 			skb->len,
 			rsi_rx_done_handler,
@@ -525,7 +490,7 @@ int rsi_usb_host_intf_write_pkt(struct rsi_hw *adapter,
 	u8 endpoint;
 
 	redpine_dbg(DATA_TX_ZONE, "%s: queueno=%d\n", __func__, queueno);
-	if (adapter->device_model == RSI_DEV_9116 && queueno == RSI_ZIGB_Q) {
+	if (DEV_MODEL_9116 && queueno == RSI_ZIGB_Q) {
 		endpoint = ZIGB_EP;
 	} else {
 		endpoint = ((queueno == RSI_WIFI_MGMT_Q ||
@@ -575,15 +540,10 @@ int rsi_usb_load_data_master_write(struct rsi_hw *adapter,
 	num_blocks = instructions_sz / block_size;
 	redpine_dbg(INFO_ZONE, "num_blocks: %d\n", num_blocks);
 
-	for (cur_indx = 0, ii = 0;
-	     ii < num_blocks;
-	     ii++, cur_indx += block_size) {
+  for (cur_indx = 0, ii = 0; ii < num_blocks; ii++, cur_indx += block_size) {
 		memset(temp_buf, 0, block_size);
 		memcpy(temp_buf, ta_firmware + cur_indx, block_size);
-		if ((rsi_usb_write_register_multiple(adapter,
-						     base_address,
-						     (u8 *)(temp_buf),
-						     block_size)) < 0)
+    if ((rsi_usb_write_register_multiple(adapter, base_address, (u8 *)(temp_buf), block_size)) < 0)
 			return -EIO;
 
 		redpine_dbg(INFO_ZONE, "%s: loading block: %d\n", __func__, ii);
@@ -690,8 +650,7 @@ static void rsi_deinit_usb_interface(struct rsi_hw *adapter)
  *
  * Return: ret_val: 0 on success, -ENOMEM on failure.
  */
-static int rsi_find_bulk_in_and_out_endpoints(struct usb_interface *interface,
-					      struct rsi_hw *adapter)
+static int rsi_find_bulk_in_and_out_endpoints(struct usb_interface *interface, struct rsi_hw *adapter)
 {
 	struct rsi_91x_usbdev *dev = (struct rsi_91x_usbdev *)adapter->rsi_dev;
 	struct usb_host_interface *iface_desc;
@@ -723,6 +682,8 @@ static int rsi_find_bulk_in_and_out_endpoints(struct usb_interface *interface,
 		     USB_ENDPOINT_XFER_BULK)) {
 			redpine_dbg(INIT_ZONE, "%s:%d\n", __func__, __LINE__);
 			buffer_size = endpoint->wMaxPacketSize;
+      if (buffer_size == USB_FULL_SPEED_SIZE)
+        adapter->usb_full_speed = true;
 			dev->bulkout_endpoint_addr[bout_found] =
 					endpoint->bEndpointAddress;
 			buffer_size = endpoint->wMaxPacketSize;
@@ -737,8 +698,7 @@ static int rsi_find_bulk_in_and_out_endpoints(struct usb_interface *interface,
 			break;
 	}
 
-	if (!(dev->bulkin_endpoint_addr[0]) &&
-	    (dev->bulkout_endpoint_addr[0]))
+  if (!(dev->bulkin_endpoint_addr[0]) && (dev->bulkout_endpoint_addr[0]))
 		return -EINVAL;
 
 	return 0;
@@ -752,7 +712,6 @@ static int rsi_usb_init_rx(struct rsi_hw *adapter)
 
 	for (idx = 0; idx < MAX_RX_URBS; idx++) {
 		rx_cb = &dev->rx_cb[idx];
-
 
 		rx_cb->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!rx_cb->rx_urb) {
@@ -779,8 +738,7 @@ err:
  *
  * Return: 0 on success, a negative error code on failure.
  */
-static int rsi_init_usb_interface(struct rsi_hw *adapter,
-				  struct usb_interface *pfunction)
+static int rsi_init_usb_interface(struct rsi_hw *adapter, struct usb_interface *pfunction)
 {
 	struct rsi_91x_usbdev *rsi_dev;
 	struct rsi_common *common = adapter->priv;
@@ -810,8 +768,7 @@ static int rsi_init_usb_interface(struct rsi_hw *adapter,
 	rsi_dev->saved_tx_buffer = rsi_dev->tx_buffer;
 	dword_align_bytes = (unsigned long)rsi_dev->tx_buffer & 0x3f;
 	if (dword_align_bytes)
-		rsi_dev->tx_buffer = rsi_dev->tx_buffer +
-				     (64 - dword_align_bytes);
+    rsi_dev->tx_buffer = rsi_dev->tx_buffer + (64 - dword_align_bytes);
 
 	/* Initialize RX handle */
 	if (rsi_usb_init_rx(adapter)) {
@@ -829,8 +786,7 @@ static int rsi_init_usb_interface(struct rsi_hw *adapter,
 	adapter->host_intf_ops = &usb_host_intf_ops;
 
 	rsi_init_event(&rsi_dev->rx_thread.event);
-	status = rsi_create_kthread(common, &rsi_dev->rx_thread,
-				    rsi_usb_rx_thread, "USB-RX-Thread");
+  status = rsi_create_kthread(common, &rsi_dev->rx_thread, rsi_usb_rx_thread, "USB-RX-Thread");
 	if (status) {
 		redpine_dbg(ERR_ZONE, "%s: Unable to init rx thrd\n", __func__);
 		goto fail_2;
@@ -869,33 +825,21 @@ static int rsi_usb_gspi_init(struct rsi_hw *adapter)
 	gspi_ctrl_reg0_val |= 0x000;
 
 	/* Initializing GSPI for ULP read/writes */
-	return rsi_usb_master_reg_write(adapter, GSPI_CTRL_REG0,
-			gspi_ctrl_reg0_val, 2);
+  return rsi_usb_master_reg_write(adapter, GSPI_CTRL_REG0, gspi_ctrl_reg0_val, 2);
 }
 
-static int usb_ulp_read_write(struct rsi_hw *adapter,
-			      u16 addr,
-			      u16 *data,
-			      u16 len_in_bits)
+static int usb_ulp_read_write(struct rsi_hw *adapter, u16 addr, u16 *data, u16 len_in_bits)
 {
-	if ((rsi_usb_master_reg_write(adapter,
-				      GSPI_DATA_REG1,
-				      ((addr << 6) | (data[1] & 0x3f)),
-				      2) < 0))
+  if ((rsi_usb_master_reg_write(adapter, GSPI_DATA_REG1, ((addr << 6) | (data[1] & 0x3f)), 2) < 0))
 		goto fail;
 
-	if ((rsi_usb_master_reg_write(adapter,
-				      GSPI_DATA_REG0,
-				      (*(u16 *)&data[0]),
-				      2)) < 0)
+  if ((rsi_usb_master_reg_write(adapter, GSPI_DATA_REG0, (*(u16 *)&data[0]), 2)) < 0)
 		goto fail;
 
 	if ((rsi_usb_gspi_init(adapter)) < 0)
 		goto fail;
 
-	if ((rsi_usb_master_reg_write(adapter, GSPI_CTRL_REG1,
-				      ((len_in_bits - 1) | GSPI_TRIG),
-				      2)) < 0)
+  if ((rsi_usb_master_reg_write(adapter, GSPI_CTRL_REG1, ((len_in_bits - 1) | GSPI_TRIG), 2)) < 0)
 		goto fail;
 
 	msleep(10);
@@ -923,55 +867,39 @@ static int rsi_reset_card(struct rsi_hw *adapter)
 	rsi_usb_master_reg_write(adapter, TA_HOLD_REG, 0xE, 4);
 	msleep(100);
 
-	if (adapter->device_model != RSI_DEV_9116) {
+  if (adapter->device_model < RSI_DEV_9116) {
 		*(u32 *)temp = 2;
-		if ((usb_ulp_read_write(adapter,
-					WATCH_DOG_TIMER_1,
-					&temp[0], 32)) < 0) {
+    if ((usb_ulp_read_write(adapter, WATCH_DOG_TIMER_1, &temp[0], 32)) < 0) {
 			goto fail;
 		}
 
 		*(u32 *)temp = 0;
-		if ((usb_ulp_read_write(adapter,
-					WATCH_DOG_TIMER_2,
-					temp, 32)) < 0) {
+    if ((usb_ulp_read_write(adapter, WATCH_DOG_TIMER_2, temp, 32)) < 0) {
 			goto fail;
 		}
 
 		*(u32 *)temp = 50;
-		if ((usb_ulp_read_write(adapter,
-					WATCH_DOG_DELAY_TIMER_1,
-					temp, 32)) < 0) {
+    if ((usb_ulp_read_write(adapter, WATCH_DOG_DELAY_TIMER_1, temp, 32)) < 0) {
 			goto fail;
 		}
 
 		*(u32 *)temp = 0;
-		if ((usb_ulp_read_write(adapter,
-					WATCH_DOG_DELAY_TIMER_2,
-					temp, 32)) < 0) {
+    if ((usb_ulp_read_write(adapter, WATCH_DOG_DELAY_TIMER_2, temp, 32)) < 0) {
 			goto fail;
 		}
 
 		*(u32 *)temp = ((0xaa000) | RESTART_WDT | BYPASS_ULP_ON_WDT);
-		if ((usb_ulp_read_write(adapter,
-					WATCH_DOG_TIMER_ENABLE,
-					temp, 32)) < 0) {
+    if ((usb_ulp_read_write(adapter, WATCH_DOG_TIMER_ENABLE, temp, 32)) < 0) {
 			goto fail;
 		}
 	} else {
-		if ((rsi_usb_master_reg_write(adapter,
-					      NWP_WWD_INTERRUPT_TIMER,
-					      5, 4)) < 0) {
+    if ((rsi_usb_master_reg_write(adapter, NWP_WWD_INTERRUPT_TIMER, 5, 4)) < 0) {
 			goto fail;
 		}
-		if ((rsi_usb_master_reg_write(adapter,
-					      NWP_WWD_SYSTEM_RESET_TIMER,
-					      4, 4)) < 0) {
+    if ((rsi_usb_master_reg_write(adapter, NWP_WWD_SYSTEM_RESET_TIMER, 4, 4)) < 0) {
 			goto fail;
 		}
-		if ((rsi_usb_master_reg_write(adapter,
-					      NWP_WWD_MODE_AND_RSTART,
-					      0xAA0001, 4)) < 0) {
+    if ((rsi_usb_master_reg_write(adapter, NWP_WWD_MODE_AND_RSTART, 0xAA0001, 4)) < 0) {
 			goto fail;
 		}
 	}
@@ -1000,10 +928,12 @@ static int rsi_probe(struct usb_interface *pfunction,
 	struct rsi_91x_usbdev *dev;
 	struct rsi_common *common;
 	u32 fw_status = 0;
+  u32 endpoint_ready = 0;
 	int status = 0;
 
 	redpine_dbg(INIT_ZONE, "%s: Init function called\n", __func__);
 
+  redpine_ps_sleep_type = LP_POWER_SAVE;
 	adapter = redpine_91x_init();
 	if (!adapter) {
 		redpine_dbg(ERR_ZONE, "%s: Failed to init os intf ops\n",
@@ -1042,7 +972,7 @@ static int rsi_probe(struct usb_interface *pfunction,
 
 	if (id && (id->idProduct == 0x9113)) {
 		redpine_dbg(INIT_ZONE, "%s: 9113 MODULE IS CONNECTED\n",
-			__func__);
+			_func__);
 		adapter->device_model = RSI_DEV_9113;
 	} else if (id && (id->idProduct == 0x9116)) {
 		adapter->device_model = RSI_DEV_9116;
@@ -1056,6 +986,14 @@ static int rsi_probe(struct usb_interface *pfunction,
 	}
 
 	dev = (struct rsi_91x_usbdev *)adapter->rsi_dev;
+  rsi_usb_reg_read(dev->usbdev, 0x202101c4, &endpoint_ready, 2);
+  redpine_dbg(INIT_ZONE, "Endpoint status = %4x \n", endpoint_ready);
+  if (endpoint_ready == 0x88) {
+    redpine_dbg(INIT_ZONE, "Endpoint Ready before Loading Firmware \n");
+    status = rsi_rx_urb_submit(adapter, 1 /* RX_WLAN_EP */);
+    if (status)
+      goto err1;
+  }
 
 	status = rsi_usb_reg_read(dev->usbdev, FW_STATUS_REG, &fw_status, 2);
 	if (status < 0)
@@ -1074,9 +1012,13 @@ static int rsi_probe(struct usb_interface *pfunction,
 		redpine_dbg(INIT_ZONE, "%s: Device Init Done\n", __func__);
 	}
 
+  msleep(1);
+  if (endpoint_ready != 0x88) {
+    redpine_dbg(INIT_ZONE, "Endpoint Ready after Loading Firmware \n");
 	status = rsi_rx_urb_submit(adapter, 1 /* RX_WLAN_EP */);  
 	if (status)
 		goto err1;
+  }
 
 #if defined(CONFIG_REDPINE_BT_ALONE) || defined(CONFIG_REDPINE_COEX_MODE)
 	status = rsi_rx_urb_submit(adapter, 2 /* RX_BT_EP */);

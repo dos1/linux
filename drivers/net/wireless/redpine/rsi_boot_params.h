@@ -56,19 +56,15 @@
 #define PLL960_N_VAL_40                 0
 #define PLL960_P_VAL_40                 5
 
-#define UMAC_CLK_20BW \
-	(((TAPLL_M_VAL_20 + 1) * 40) / \
-	 ((TAPLL_N_VAL_20 + 1) * (TAPLL_P_VAL_20 + 1)))
+#define UMAC_CLK_20BW (((TAPLL_M_VAL_20 + 1) * 40) / ((TAPLL_N_VAL_20 + 1) * (TAPLL_P_VAL_20 + 1)))
 #define VALID_20 \
-	(WIFI_TAPLL_CONFIGS | WIFI_PLL960_CONFIGS | WIFI_AFEPLL_CONFIGS | \
-	 WIFI_SWITCH_CLK_CONFIGS | BOOTUP_MODE_INFO | CRYSTAL_GOOD_TIME)
+  (WIFI_TAPLL_CONFIGS | WIFI_PLL960_CONFIGS | WIFI_AFEPLL_CONFIGS | WIFI_SWITCH_CLK_CONFIGS | BOOTUP_MODE_INFO \
+   | CRYSTAL_GOOD_TIME)
 
-#define UMAC_CLK_40BW   \
-	(((TAPLL_M_VAL_40 + 1) * 40) / \
-	 ((TAPLL_N_VAL_40 + 1) * (TAPLL_P_VAL_40 + 1)))
+#define UMAC_CLK_40BW (((TAPLL_M_VAL_40 + 1) * 40) / ((TAPLL_N_VAL_40 + 1) * (TAPLL_P_VAL_40 + 1)))
 #define VALID_40 \
-	(WIFI_PLL960_CONFIGS | WIFI_AFEPLL_CONFIGS | WIFI_SWITCH_CLK_CONFIGS | \
-	 WIFI_TAPLL_CONFIGS | CRYSTAL_GOOD_TIME | BOOTUP_MODE_INFO)
+  (WIFI_PLL960_CONFIGS | WIFI_AFEPLL_CONFIGS | WIFI_SWITCH_CLK_CONFIGS | WIFI_TAPLL_CONFIGS | CRYSTAL_GOOD_TIME \
+   | BOOTUP_MODE_INFO)
 
 /* TAPLL programming configurations */
 struct tapll_info {
@@ -154,10 +150,12 @@ struct device_clk_info_9116 {
 
 struct bootup_params {
 	__le16 magic_number;
-#define LOADED_TOKEN  0x5AA5   /* Bootup params are installed by host
+#define LOADED_TOKEN \
+  0x5AA5 /* Bootup params are installed by host
 				* or OTP/FLASH (Bootloader)
 				*/
-#define ROM_TOKEN     0x55AA   /* Bootup params are taken from ROM
+#define ROM_TOKEN \
+  0x55AA /* Bootup params are taken from ROM
 				* itself in MCU mode.
 				*/
 	__le16 crystal_good_time;
@@ -217,10 +215,12 @@ struct bootup_params {
 /* bootup params for RS9116 */
 struct bootup_params_9116 {
 	__le16 magic_number;
-#define LOADED_TOKEN  0x5AA5   /* Bootup params are installed by host
+#define LOADED_TOKEN \
+  0x5AA5 /* Bootup params are installed by host
 				* or OTP/FLASH (Bootloader)
 				*/
-#define ROM_TOKEN     0x55AA   /* Bootup params are taken from ROM
+#define ROM_TOKEN \
+  0x55AA /* Bootup params are taken from ROM
 				* itself in MCU mode.
 				*/
 	__le16 crystal_good_time;

@@ -1,32 +1,16 @@
-/**
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include <linux/firmware.h>
 #include <linux/version.h>
@@ -145,6 +129,10 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 	struct xtended_desc *xtend_desc;
 	u16 seq_num = 0;
 	u8 vap_id = 0;
+#ifdef CONFIG_STA_PLUS_AP
+  struct vif_priv *vif_info = NULL;
+#endif
+  struct rsi_sta *sta_info;
 
 	info = IEEE80211_SKB_CB(skb);
 	tx_params = (struct skb_info *)info->driver_data;
@@ -162,6 +150,8 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 		status = -ENOSPC;
 		goto err;
 	}
+  if (((skb->len + dword_align_bytes) % 64 == 0) && adapter->usb_full_speed == 1)
+    dword_align_bytes += 1;
 	skb_push(skb, dword_align_bytes);
 	header_size += dword_align_bytes;
 
@@ -179,20 +169,33 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 		status = -ENOSPC;
 		goto err;
 	}
-	vap_id = ((struct vif_priv *)vif->drv_priv)->vap_id;
+#ifndef CONFIG_STA_PLUS_AP
+   vap_id = ((struct vif_priv *)vif->drv_priv)->vap_id;
+#else
+  vif_info = (struct vif_priv *)vif->drv_priv;
+  vap_id   = vif_info->vap_id;
+#endif
 
+  if (vif->type == NL80211_IFTYPE_STATION) {
+#ifndef CONFIG_STA_PLUS_AP
+    sta_info = (struct rsi_sta *)common->stations[RSI_MAX_ASSOC_STAS].sta->drv_priv;
+#else
+    sta_info = (struct rsi_sta *)common->stations[tx_params->sta_id].sta->drv_priv;
+#endif
+  } else {
+    sta_info = (struct rsi_sta *)common->stations[tx_params->sta_id].sta->drv_priv;
+  }
+ 
 	frame_desc[2] = cpu_to_le16(header_size - FRAME_DESC_SZ);
 	if (ieee80211_is_data_qos(wh->frame_control)) {
 		ieee80211_hdr_size += 2;
 		frame_desc[6] |= cpu_to_le16(BIT(12));
 	}
 
-	if ((vif->type == NL80211_IFTYPE_STATION) &&
-	    (adapter->ps_state == PS_ENABLED))
+  if ((vif->type == NL80211_IFTYPE_STATION) && (adapter->ps_state == PS_ENABLED))
 		wh->frame_control |= BIT(12);
 
-	if ((!(info->flags & IEEE80211_TX_INTFL_DONT_ENCRYPT)) &&
-		(info->control.hw_key)) {
+  if ((!(info->flags & IEEE80211_TX_INTFL_DONT_ENCRYPT)) && (info->control.hw_key)) {
 		if (rsi_is_cipher_wep(common))
 			ieee80211_hdr_size += 4;
 		else
@@ -200,8 +203,7 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 		frame_desc[6] |= cpu_to_le16(BIT(15));
 	}
 
-	frame_desc[0] = cpu_to_le16((skb->len - FRAME_DESC_SZ) |
-				    (RSI_WIFI_DATA_Q << 12));
+  frame_desc[0] = cpu_to_le16((skb->len - FRAME_DESC_SZ) | (RSI_WIFI_DATA_Q << 12));
 	frame_desc[2] |= cpu_to_le16(ieee80211_hdr_size << 8);
 
 	if (common->min_rate != 0xffff) {
@@ -212,7 +214,11 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 		if (conf_is_ht40(&common->priv->hw->conf))
 			frame_desc[5] = cpu_to_le16(FULL40M_ENABLE);
 
+#ifndef CONFIG_STA_PLUS_AP
 		if ((common->vif_info[0].sgi) && (common->min_rate & 0x100)) {
+#else
+    if (vif_info->sgi && (common->min_rate & 0x100)) {
+#endif
 			/* Only MCS rates */
 			frame_desc[4] |= cpu_to_le16(ENABLE_SHORTGI_RATE);
 		}
@@ -224,14 +230,13 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 	}
 	if (skb->protocol == cpu_to_be16(ETH_P_PAE)) {
 		redpine_dbg(INFO_ZONE, "*** Tx EAPOL ***\n");
-		
+
 		frame_desc[3] = cpu_to_le16(RATE_INFO_ENABLE);
-		if (common->band == NL80211_BAND_5GHZ)
-			frame_desc[4] = cpu_to_le16(RSI_RATE_6);
-		else
-			frame_desc[4] = cpu_to_le16(RSI_RATE_1);
-		frame_desc[6] |= cpu_to_le16(BIT(13));
-		frame_desc[1] |= cpu_to_le16(BIT(12));
+    frame_desc[4] = cpu_to_le16(sta_info->min_supported_rate);
+
+    frame_desc[6] |= cpu_to_le16(QUEUE_TO_HEAD);
+    frame_desc[1] |= cpu_to_le16(FETCH_RETRY_CNT_FRM_HST);
+
 		if (vif->type == NL80211_IFTYPE_STATION) {
 		if (common->eapol4_confirm) {
 			/* Eapol Rekeying , Change the priority to Voice _Q
@@ -254,29 +259,22 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 	}
 
 	frame_desc[6] |= cpu_to_le16(seq_num);
-	frame_desc[7] = cpu_to_le16(((tx_params->tid & 0xf) << 4) |
-				    (skb->priority & 0xf) |
-				    (tx_params->sta_id << 8));
+  frame_desc[7] = cpu_to_le16(((tx_params->tid & 0xf) << 4) | (skb->priority & 0xf) | (tx_params->sta_id << 8));
 
-	if ((is_broadcast_ether_addr(wh->addr1)) ||
-	    (is_multicast_ether_addr(wh->addr1))) {
+  if ((is_broadcast_ether_addr(wh->addr1)) || (is_multicast_ether_addr(wh->addr1))) {
 		frame_desc[3] = cpu_to_le16(RATE_INFO_ENABLE);
 		frame_desc[3] |= cpu_to_le16(RSI_BROADCAST_PKT);
-		if ((vif->type == NL80211_IFTYPE_AP) ||
-		    (vif->type == NL80211_IFTYPE_P2P_GO)) {
+    if ((vif->type == NL80211_IFTYPE_AP) || (vif->type == NL80211_IFTYPE_P2P_GO)) {
 			if (common->band == NL80211_BAND_5GHZ)
 				frame_desc[4] = cpu_to_le16(RSI_RATE_6);
 			else
 				frame_desc[4] = cpu_to_le16(RSI_RATE_1);
 		}
-		frame_desc[7] = cpu_to_le16(((tx_params->tid & 0xf) << 4) |
-					    (skb->priority & 0xf) |
-					    (vap_id << 8));
+    frame_desc[7] = cpu_to_le16(((tx_params->tid & 0xf) << 4) | (skb->priority & 0xf) | (vap_id << 8));
 	}
 
-	if (((vif->type == NL80211_IFTYPE_AP) ||
-	     (vif->type == NL80211_IFTYPE_P2P_GO)) &&
-	    (ieee80211_has_moredata(wh->frame_control)))
+  if (((vif->type == NL80211_IFTYPE_AP) || (vif->type == NL80211_IFTYPE_P2P_GO))
+      && (ieee80211_has_moredata(wh->frame_control)))
 		frame_desc[3] |= cpu_to_le16(MORE_DATA_PRESENT);
 
 	return 0;
@@ -359,8 +357,7 @@ int rsi_prepare_mgmt_desc(struct rsi_common *common,struct sk_buff *skb)
 		goto err;
 	}
 
-	desc[0] = cpu_to_le16((skb->len - FRAME_DESC_SZ) |
-			      (RSI_WIFI_MGMT_Q << 12));
+  desc[0] = cpu_to_le16((skb->len - FRAME_DESC_SZ) | (RSI_WIFI_MGMT_Q << 12));
 	desc[1] = cpu_to_le16(TX_DOT11_MGMT);
 	desc[2] = cpu_to_le16(header_size - FRAME_DESC_SZ);
 
@@ -369,9 +366,8 @@ int rsi_prepare_mgmt_desc(struct rsi_common *common,struct sk_buff *skb)
 		desc[6] = cpu_to_le16(MGMT_FRAME_PROTECTION);
 	} else
 		desc[2] |= cpu_to_le16(MIN_802_11_HDR_LEN << 8);
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 20, 17)
-	if (ieee80211_is_probe_req(wh->frame_control) && 
-		(common->scan_in_prog))
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 20, 17) || defined(OFFLOAD_SCAN_TO_DEVICE)
+  if (ieee80211_is_probe_req(wh->frame_control) && (common->scan_in_prog))
 	desc[3] = cpu_to_le16(INSERT_SEQ_IN_FW);
 #endif
 	desc[3] |= cpu_to_le16(RATE_INFO_ENABLE);
@@ -392,15 +388,13 @@ int rsi_prepare_mgmt_desc(struct rsi_common *common,struct sk_buff *skb)
 	}
 
 	if (ieee80211_is_probe_resp(wh->frame_control)) {
-		desc[1] |= cpu_to_le16(ADD_DELTA_TSF_VAP_ID |
-				       FETCH_RETRY_CNT_FRM_HST);
+    desc[1] |= cpu_to_le16(ADD_DELTA_TSF_VAP_ID | FETCH_RETRY_CNT_FRM_HST);
 #define PROBE_RESP_RETRY_CNT	3
 		xtend_desc->retry_cnt = PROBE_RESP_RETRY_CNT;
 	}
 
-	if (((vif->type == NL80211_IFTYPE_AP) ||
-	     (vif->type == NL80211_IFTYPE_P2P_GO)) &&
-	    (ieee80211_is_action(wh->frame_control))) {
+  if (((vif->type == NL80211_IFTYPE_AP) || (vif->type == NL80211_IFTYPE_P2P_GO))
+      && (ieee80211_is_action(wh->frame_control))) {
 		struct rsi_sta *sta = rsi_find_sta(common, wh->addr1);
 
 		if (sta)
@@ -547,8 +541,13 @@ int rsi_send_mgmt_pkt(struct rsi_common *common, struct sk_buff *skb)
 			sta = rsi_find_sta(common, wh->addr1);
 			offset = sta->sta_id;
 		} else if (vif->type == NL80211_IFTYPE_STATION) {
-			sta = &common->stations[RSI_MAX_ASSOC_STAS];
-			offset = RSI_MAX_ASSOC_STAS;
+#ifndef CONFIG_STA_PLUS_AP
+       sta    = &common->stations[RSI_MAX_ASSOC_STAS];
+       offset = RSI_MAX_ASSOC_STAS;
+#else
+      sta    = &common->stations[STA_PEER];
+      offset = STA_PEER;
+#endif
 		}
 		if(sta) {
 			redpine_dbg(MGMT_DEBUG_ZONE,
@@ -686,7 +685,11 @@ int rsi_send_zb_pkt(struct rsi_common *common, struct sk_buff *skb)
 	return status;
 }
 
+#ifndef CONFIG_STA_PLUS_AP
 int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb)
+#else
+int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb, struct ieee80211_vif *vif)
+#endif
 {
 	struct rsi_hw *adapter = (struct rsi_hw *)common->priv;
 	struct rsi_mac_frame *bcn_frm = NULL;
@@ -697,9 +700,11 @@ int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb)
 	int status = 0;
 	u16 tim_offset = 0;
 
-	mac_bcn = ieee80211_beacon_get_tim(adapter->hw,
-					   adapter->vifs[adapter->sc_nvifs - 1],
-					   &tim_offset, NULL);
+#ifndef CONFIG_STA_PLUS_AP
+  mac_bcn = ieee80211_beacon_get_tim(adapter->hw, adapter->vifs[adapter->sc_nvifs - 1], &tim_offset, NULL);
+#else
+  mac_bcn = ieee80211_beacon_get_tim(adapter->hw, vif, &tim_offset, NULL);
+#endif
 	if (!mac_bcn) {
 		redpine_dbg(ERR_ZONE, "Failed to get beacon from mac80211\n");
 		return -EINVAL;
@@ -707,13 +712,10 @@ int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb)
 
 	common->beacon_cnt++;
 	bcn_frm = (struct rsi_mac_frame *)skb->data;
-	bcn_frm->desc_word[0] = cpu_to_le16(mac_bcn->len |
-					    (RSI_WIFI_DATA_Q << 12));
+  bcn_frm->desc_word[0] = cpu_to_le16(mac_bcn->len | (RSI_WIFI_DATA_Q << 12));
 	bcn_frm->desc_word[1] = 0; // FIXME: Fill type later
 	bcn_frm->desc_word[2] = cpu_to_le16(MIN_802_11_HDR_LEN << 8);
-	bcn_frm->desc_word[3] = cpu_to_le16(MAC_BBP_INFO | NO_ACK_IND |
-					    BEACON_FRAME | INSERT_TSF |
-					    INSERT_SEQ_NO);
+  bcn_frm->desc_word[3] = cpu_to_le16(MAC_BBP_INFO | NO_ACK_IND | BEACON_FRAME | INSERT_TSF | INSERT_SEQ_NO);
 	bcn_frm->desc_word[3] |= cpu_to_le16(RATE_INFO_ENABLE);
 	bcn_frm->desc_word[4] = cpu_to_le16(vap_id << 14);
 	bcn_frm->desc_word[7] = cpu_to_le16(BEACON_HW_Q);
@@ -972,8 +974,7 @@ fail:
  *
  * Return: 0 on success, -1 on failure.
  */
-static int bl_write_header(struct rsi_hw *adapter,
-			   u8 *flash_content, u32 content_size)
+static int bl_write_header(struct rsi_hw *adapter, u8 *flash_content, u32 content_size)
 {
 	struct rsi_host_intf_ops *hif_ops = adapter->host_intf_ops;
 	struct bl_header *bl_hdr = NULL;
@@ -1167,9 +1168,7 @@ fail:
  *
  * Return: 0 on success, -1 on failure.
  */
-static int auto_fw_upgrade(struct rsi_hw *adapter,
-			   u8 *flash_content,
-			   u32 content_size)
+static int auto_fw_upgrade(struct rsi_hw *adapter, u8 *flash_content, u32 content_size)
 {
 	u8 cmd;
 	u8 *temp_flash_content;
@@ -1300,8 +1299,7 @@ static int rsi_check_crc(struct rsi_hw *adapter)
 	return 0;
 }
 
-static int rsi_check_firmware(struct rsi_hw *adapter,
-			      const struct firmware *fw_entry)
+static int rsi_check_firmware(struct rsi_hw *adapter, const struct firmware *fw_entry)
 {
 	struct rsi_common *common = adapter->priv;
 	u32 content_size = 0;
@@ -1312,7 +1310,8 @@ static int rsi_check_firmware(struct rsi_hw *adapter,
 	redpine_dbg(ERR_ZONE, " FW Length = %d bytes\n", content_size);
 	common->lmac_ver.major = version_info->major_id;
 	common->lmac_ver.minor = version_info->minor_id;
-	common->lmac_ver.build_id = (u16)((version_info->build_msb << 8) | version_info->build_lsb);
+  common->lmac_ver.build_id    = (u16)(version_info->build_num);
+  common->lmac_ver.patch_id    = (u16)(version_info->patch_num);
 	common->lmac_ver.chip_id = (u16)((version_info->chip_id << 8) | version_info->rom_ver);
 	common->lmac_ver.customer_id = version_info->cust_id;
 	rsi_print_version(common);
@@ -1377,7 +1376,9 @@ static int rsi_load_9116_firmware_to_ram(struct rsi_hw *adapter, const struct fi
 	redpine_dbg(INIT_ZONE, "FW Length = %d bytes\n", instructions_sz);
 	common->lmac_ver.major = version_info->major_id;
 	common->lmac_ver.minor = version_info->minor_id;
-	common->lmac_ver.build_id = (u16)((version_info->build_msb << 8) | version_info->build_lsb);
+  common->lmac_ver.build_id = (u16)(version_info->build_num);
+  common->lmac_ver.patch_id = (u16)(version_info->patch_num);
+
 	common->lmac_ver.chip_id = (u16)((version_info->chip_id << 8) | version_info->rom_ver);
 	common->lmac_ver.customer_id = version_info->cust_id;
 	rsi_print_version(common);
@@ -1775,10 +1776,7 @@ upgrade_9116_flash_fw:
 			goto fail;
 	
 load_image_cmd:
-		if ((bl_cmd(adapter,
-			    LOAD_HOSTED_FW,
-			    LOADING_INITIATED,
-			    "LOAD_HOSTED_FW")) < 0)
+    if ((bl_cmd(adapter, LOAD_HOSTED_FW, LOADING_INITIATED, "LOAD_HOSTED_FW")) < 0)
 			goto fail;
 		redpine_dbg(INFO_ZONE, "Load Image command passed..\n");
 		goto success;
@@ -1818,22 +1816,6 @@ fail:
 
 int rsi_validate_oper_mode(u16 oper_mode)
 {
-#if defined(CONFIG_RS9116_PURISM)
-	if ((oper_mode == 5) || (oper_mode == 6))
-		return 0;
-	if ((oper_mode == 13) || (oper_mode == 14)) {
-		redpine_dbg(ERR_ZONE,
-				"Operating mode %d is only supported prior to firmware 2.x\n",
-				oper_mode);
-		return 0;
-	} else {
-		redpine_dbg(ERR_ZONE,
-				"Operating mode %d is not supported, "
-				"it should be either 13 or 14\n",
-				oper_mode);
-		return -EINVAL;
-	}
-#endif
 	switch (oper_mode) {
 	case 1:
 #if defined(CONFIG_REDPINE_BT_ALONE)
@@ -1858,6 +1840,7 @@ int rsi_validate_oper_mode(u16 oper_mode)
 	case 5:
 	case 6:
 	case 9:
+	case 10:
 	case 13:
 	case 14:
 #ifndef CONFIG_REDPINE_COEX_MODE
@@ -1955,8 +1938,9 @@ int redpine_hal_device_init(struct rsi_hw *adapter)
 		common->coex_mode = 2;
 		break;
 	case DEV_OPMODE_AP_BT_DUAL:
+    case DEV_OPMODE_AP_BT_LE:
 	case DEV_OPMODE_AP_BT:
-		if (adapter->device_model == RSI_DEV_9116)
+      if (DEV_MODEL_9116)
 			common->coex_mode = 2;
 		else
 			common->coex_mode = 4;

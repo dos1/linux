@@ -1,32 +1,16 @@
-/*
- * Copyright (c) 2017 Redpine Signals Inc. All rights reserved.
+/********************************************************************************
+ * # License
+ * <b>Copyright 2020 Silicon Laboratories Inc. www.silabs.com</b>
+ *******************************************************************************
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * The licensor of this software is Silicon Laboratories Inc. Your use of this
+ * software is governed by the terms of Silicon Labs Master Software License
+ * Agreement (MSLA) available at
+ * www.silabs.com/about-us/legal/master-software-license-agreement. This
+ * software is distributed to you in Source Code format and is governed by the
+ * sections of the MSLA applicable to Source Code.
  *
- * 	1. Redistributions of source code must retain the above copyright
- * 	   notice, this list of conditions and the following disclaimer.
- *
- * 	2. Redistributions in binary form must reproduce the above copyright
- * 	   notice, this list of conditions and the following disclaimer in the
- * 	   documentation and/or other materials provided with the distribution.
- *
- * 	3. Neither the name of the copyright holder nor the names of its
- * 	   contributors may be used to endorse or promote products derived from
- * 	   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION). HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ ******************************************************************************/
 
 #include <linux/firmware.h>
 #include "rsi_sdio.h"
@@ -41,8 +25,7 @@
  *
  * Return: status: 0 on success, -1 on failure.
  */
-int rsi_sdio_master_access_msword(struct rsi_hw *adapter,
-				  u16 ms_word)
+int rsi_sdio_master_access_msword(struct rsi_hw *adapter, u16 ms_word)
 {
 	u8 byte;
 	u8 function = 0;
@@ -83,8 +66,7 @@ void rsi_sdio_rx_thread(struct rsi_common *common)
 	bool done = false;
 
 	do {
-		status = rsi_wait_event(&sdev->rx_thread.event, 
-					EVENT_WAIT_FOREVER);
+    status = rsi_wait_event(&sdev->rx_thread.event, EVENT_WAIT_FOREVER);
 		if (status < 0)
 			break;
 
@@ -131,8 +113,7 @@ void rsi_sdio_rx_thread(struct rsi_common *common)
 static int rsi_process_pkt(struct rsi_common *common)
 {
 	struct rsi_hw *adapter = common->priv;
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	u8 num_blks = 0;
 	u32 rcv_pkt_len = 0;
 	int status = 0;
@@ -309,9 +290,7 @@ int rsi_read_intr_status_reg(struct rsi_hw *adapter)
 	struct rsi_common *common = adapter->priv;
 	int status;
 
-	status = rsi_sdio_read_register(common->priv,
-						RSI_FN1_INT_REGISTER,
-						&isr_status);
+  status = rsi_sdio_read_register(common->priv, RSI_FN1_INT_REGISTER, &isr_status);
 	isr_status &= 0xE;
 	
 	if(isr_status & BIT(MSDU_PKT_PENDING))
@@ -328,8 +307,7 @@ int rsi_read_intr_status_reg(struct rsi_hw *adapter)
 void rsi_interrupt_handler(struct rsi_hw *adapter)
 {
 	struct rsi_common *common = adapter->priv;
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	int status;
 	enum sdio_interrupt_type isr_type;
 	u8 isr_status = 0;
@@ -340,15 +318,14 @@ void rsi_interrupt_handler(struct rsi_hw *adapter)
 	if(!common->suspend_in_prog)
 	{
 		common->rx_in_prog = true;
-		mutex_unlock(&common->rx_lock);
 	}
 	else {
+		common->rx_in_prog = false;
 		redpine_dbg(ERR_ZONE,
 				"%s: Failed to read pkt as suspend in progress:\n",
 				__func__);
-		mutex_unlock(&common->rx_lock);
-		return;
 	}
+	mutex_unlock(&common->rx_lock);
 	
 	do {
 		status = rsi_sdio_read_register(common->priv,
@@ -466,8 +443,7 @@ void rsi_interrupt_handler(struct rsi_hw *adapter)
 int rsi_sdio_check_buffer_status(struct rsi_hw *adapter, u8 q_num)
 {
 	struct rsi_common *common = adapter->priv;
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 	u8 buf_status = 0;
 	int status = 0;
 	static int counter = 4;
@@ -532,8 +508,7 @@ out:
  */
 int rsi_sdio_determine_event_timeout(struct rsi_hw *adapter)
 {
-	struct rsi_91x_sdiodev *dev =
-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+  struct rsi_91x_sdiodev *dev = (struct rsi_91x_sdiodev *)adapter->rsi_dev;
 
 	/* Once buffer full is seen, event timeout to occur every 2 msecs */
 	if (dev->rx_info.buffer_full)

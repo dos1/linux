@@ -204,14 +204,9 @@ struct beacon_report {
 int rsi_rrm_send_channel_load_req(struct rsi_common *common);
 int rsi_rrm_send_frame_req(struct rsi_common *common);
 int rsi_rrm_send_beacon_req(struct rsi_common *common);
-int rsi_rrm_parse_radio_action_frame(struct rsi_common *common, u8 *rx_rrm,
-				     s32 msg_len);
-int rsi_rrm_parse_spectrum_action_frame(struct rsi_common *common,
-					struct ieee80211_hdr *tmp_hdr,
-					u8 *data);
-int rsi_rrm_parse_channel_load_req(struct rsi_common *common,
-				   struct sk_buff *skb,
-				   struct rsi_meas_params *params);
+int rsi_rrm_parse_radio_action_frame(struct rsi_common *common, u8 *rx_rrm, s32 msg_len);
+int rsi_rrm_parse_spectrum_action_frame(struct rsi_common *common, struct ieee80211_hdr *tmp_hdr, u8 *data);
+int rsi_rrm_parse_channel_load_req(struct rsi_common *common, struct sk_buff *skb, struct rsi_meas_params *params);
 int rsi_rrm_sched_req(struct rsi_common *common);
 void rsi_rrm_recv_cmd_frame(struct rsi_common *common, u8 *msg, int len);
 int rsi_prepare_channel_load_rpt(struct rsi_common *common, u8 *msg, int len);
