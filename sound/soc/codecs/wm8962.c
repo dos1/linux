@@ -70,6 +70,8 @@ struct wm8962_priv {
 	struct mutex dsp2_ena_lock;
 	u16 dsp2_ena;
 
+	int mic_status;
+
 	struct delayed_work mic_work;
 	struct snd_soc_jack *jack;
 
@@ -793,7 +795,6 @@ static bool wm8962_volatile_register(struct device *dev, unsigned int reg)
 	case WM8962_CLOCKING1:
 	case WM8962_SOFTWARE_RESET:
 	case WM8962_THERMAL_SHUTDOWN_STATUS:
-	case WM8962_ADDITIONAL_CONTROL_4:
 	case WM8962_DC_SERVO_6:
 	case WM8962_INTERRUPT_STATUS_1:
 	case WM8962_INTERRUPT_STATUS_2:
@@ -1762,7 +1763,7 @@ SND_SOC_BYTES("EQR Coefficients", WM8962_EQ24, 18),
 
 
 SOC_SINGLE("3D Switch", WM8962_THREED1, 0, 1, 0),
-SND_SOC_BYTES_MASK("3D Coefficients", WM8962_THREED1, 4, WM8962_THREED_ENA),
+SND_SOC_BYTES_MASK("3D Coefficients", WM8962_THREED1, 4, WM8962_THREED_ENA | WM8962_ADC_MONOMIX),
 
 SOC_SINGLE("DF1 Switch", WM8962_DF1, 0, 1, 0),
 SND_SOC_BYTES_MASK("DF1 Coefficients", WM8962_DF1, 7, WM8962_DF1_ENA),
@@ -1957,6 +1958,7 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct wm8962_priv *wm8962 = snd_soc_component_get_drvdata(component);
 	int reg;
 
 	switch (w->shift) {
@@ -1981,6 +1983,9 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		return snd_soc_component_write(component, reg,
 			snd_soc_component_read(component, reg));
+	case SND_SOC_DAPM_POST_REG:
+		queue_delayed_work(system_unbound_wq, &wm8962->mic_work, 0);
+		return 0;
 	default:
 		WARN(1, "Invalid event %d\n", event);
 		return -EINVAL;
@@ -2180,7 +2185,7 @@ SND_SOC_DAPM_MIXER("HPMIXR", WM8962_MIXER_ENABLES, 2, 0,
 SND_SOC_DAPM_MUX_E("HPOUTL PGA", WM8962_PWR_MGMT_2, 6, 0, &hpoutl_mux,
 		   out_pga_event, SND_SOC_DAPM_POST_PMU),
 SND_SOC_DAPM_MUX_E("HPOUTR PGA", WM8962_PWR_MGMT_2, 5, 0, &hpoutr_mux,
-		   out_pga_event, SND_SOC_DAPM_POST_PMU),
+		   out_pga_event, SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_REG),
 
 SND_SOC_DAPM_PGA_E("HPOUT", SND_SOC_NOPM, 0, 0, NULL, 0, hp_event,
 		   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
@@ -2419,6 +2424,7 @@ static const int sysclk_rates[] = {
 static void wm8962_configure_bclk(struct snd_soc_component *component)
 {
 	struct wm8962_priv *wm8962 = snd_soc_component_get_drvdata(component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
 	int best, min_diff, diff;
 	int dspclk, i;
 	int clocking2 = 0;
@@ -2463,7 +2469,8 @@ static void wm8962_configure_bclk(struct snd_soc_component *component)
 
 	dspclk = snd_soc_component_read(component, WM8962_CLOCKING1);
 
-	if (snd_soc_component_get_bias_level(component) != SND_SOC_BIAS_ON)
+	if (snd_soc_component_get_bias_level(component) != SND_SOC_BIAS_ON
+	    && !snd_soc_dapm_get_pin_status(dapm, "SYSCLK"))
 		snd_soc_component_update_bits(component, WM8962_CLOCKING2,
 				WM8962_SYSCLK_ENA_MASK, 0);
 
@@ -3001,11 +3008,37 @@ static void wm8962_mic_work(struct work_struct *work)
 						  struct wm8962_priv,
 						  mic_work.work);
 	struct snd_soc_component *component = wm8962->component;
+	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
 	int status = 0;
 	int irq_pol = 0;
 	int reg;
+	int ret;
 
+	if (!wm8962->jack)
+		return;
+
+	ret = pm_runtime_get_sync(component->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(component->dev);
+		pr_err("%s: Failed to resume: %d\n", __func__, ret);
+		return;
+	}
+
+	if (!wm8962->irq) {
+		snd_soc_dapm_mutex_lock(dapm);
+		snd_soc_dapm_force_enable_pin_unlocked(dapm, "MICBIAS");
+		snd_soc_dapm_sync_unlocked(dapm);
+		snd_soc_dapm_mutex_unlock(dapm);
+
+		snd_soc_component_update_bits(component, WM8962_ADDITIONAL_CONTROL_4,
+			WM8962_MICDET_ENA, WM8962_MICDET_ENA);
+
+		msleep(200);
+	}
+
+	regcache_cache_bypass(wm8962->regmap, true);
 	reg = snd_soc_component_read(component, WM8962_ADDITIONAL_CONTROL_4);
+	regcache_cache_bypass(wm8962->regmap, false);
 
 	if (reg & WM8962_MICDET_STS) {
 		status |= SND_JACK_MICROPHONE;
@@ -3015,14 +3048,33 @@ static void wm8962_mic_work(struct work_struct *work)
 	if (reg & WM8962_MICSHORT_STS) {
 		status |= SND_JACK_BTN_0;
 		irq_pol |= WM8962_MICSCD_IRQ_POL;
+
+		/* don't report a microphone if it's shorted right after
+		   plugging in, as this may be a TRS plug in a TRRS socket */
+		if (!(wm8962->mic_status & WM8962_MICDET_STS))
+			status = 0;
 	}
+
+	wm8962->mic_status = status;
 
 	snd_soc_jack_report(wm8962->jack, status,
 			    SND_JACK_MICROPHONE | SND_JACK_BTN_0);
 
-	snd_soc_component_update_bits(component, WM8962_MICINT_SOURCE_POL,
-			    WM8962_MICSCD_IRQ_POL |
-			    WM8962_MICD_IRQ_POL, irq_pol);
+	if (wm8962->irq) {
+		snd_soc_component_update_bits(component, WM8962_MICINT_SOURCE_POL,
+				WM8962_MICSCD_IRQ_POL |
+				WM8962_MICD_IRQ_POL, irq_pol);
+	} else {
+		snd_soc_dapm_mutex_lock(dapm);
+		snd_soc_dapm_disable_pin_unlocked(dapm, "MICBIAS");
+		snd_soc_dapm_sync_unlocked(dapm);
+		snd_soc_dapm_mutex_unlock(dapm);
+
+		snd_soc_component_update_bits(component, WM8962_ADDITIONAL_CONTROL_4,
+			WM8962_MICDET_ENA, 0);
+	}
+
+	pm_runtime_put(component->dev);
 }
 
 static irqreturn_t wm8962_irq(int irq, void *data)
@@ -3136,34 +3188,35 @@ int wm8962_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 	int irq_mask, enable;
 
 	wm8962->jack = jack;
-	if (jack) {
-		irq_mask = 0;
-		enable = WM8962_MICDET_ENA;
-	} else {
-		irq_mask = WM8962_MICD_EINT | WM8962_MICSCD_EINT;
-		enable = 0;
-	}
 
-	snd_soc_component_update_bits(component, WM8962_INTERRUPT_STATUS_2_MASK,
-			    WM8962_MICD_EINT | WM8962_MICSCD_EINT, irq_mask);
-	snd_soc_component_update_bits(component, WM8962_ADDITIONAL_CONTROL_4,
-			    WM8962_MICDET_ENA, enable);
+	if (wm8962->irq) {
+		if (jack) {
+			irq_mask = 0;
+			enable = WM8962_MICDET_ENA;
+		} else {
+			irq_mask = WM8962_MICD_EINT | WM8962_MICSCD_EINT;
+			enable = 0;
+		}
+
+		snd_soc_component_update_bits(component, WM8962_INTERRUPT_STATUS_2_MASK,
+				WM8962_MICD_EINT | WM8962_MICSCD_EINT, irq_mask);
+		snd_soc_component_update_bits(component, WM8962_ADDITIONAL_CONTROL_4,
+				WM8962_MICDET_ENA, enable);
+
+		snd_soc_dapm_mutex_lock(dapm);
+
+		if (jack) {
+			snd_soc_dapm_force_enable_pin_unlocked(dapm, "MICBIAS");
+		} else {
+			snd_soc_dapm_disable_pin_unlocked(dapm, "MICBIAS");
+		}
+
+		snd_soc_dapm_mutex_unlock(dapm);
+	}
 
 	/* Send an initial empty report */
 	snd_soc_jack_report(wm8962->jack, 0,
 			    SND_JACK_MICROPHONE | SND_JACK_BTN_0);
-
-	snd_soc_dapm_mutex_lock(dapm);
-
-	if (jack) {
-		snd_soc_dapm_force_enable_pin_unlocked(dapm, "SYSCLK");
-		snd_soc_dapm_force_enable_pin_unlocked(dapm, "MICBIAS");
-	} else {
-		snd_soc_dapm_disable_pin_unlocked(dapm, "SYSCLK");
-		snd_soc_dapm_disable_pin_unlocked(dapm, "MICBIAS");
-	}
-
-	snd_soc_dapm_mutex_unlock(dapm);
 
 	return 0;
 }
@@ -3678,7 +3731,6 @@ static int wm8962_i2c_probe(struct i2c_client *i2c,
 			regmap_write(wm8962->regmap, 0x200 + i,
 				     wm8962->pdata.gpio_init[i] & 0xffff);
 		}
-
 
 	/* Put the speakers into mono mode? */
 	if (wm8962->pdata.spk_mono)

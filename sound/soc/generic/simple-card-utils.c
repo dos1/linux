@@ -14,6 +14,8 @@
 #include <sound/jack.h>
 #include <sound/simple_card_utils.h>
 
+#include "../codecs/wm8962.h"
+
 void asoc_simple_convert_fixup(struct asoc_simple_data *data,
 			       struct snd_pcm_hw_params *params)
 {
@@ -537,6 +539,8 @@ int asoc_simple_init_jack(struct snd_soc_card *card,
 	char *gpio_name;
 	int mask;
 	int det;
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_soc_component *component;
 
 	if (!prefix)
 		prefix = "";
@@ -575,6 +579,21 @@ int asoc_simple_init_jack(struct snd_soc_card *card,
 
 		snd_soc_jack_add_gpios(&sjack->jack, 1,
 				       &sjack->gpio);
+	} else {
+		/* XXX hack: invalid gpio for mic-det on wm8962:
+		 * call into wm8962 and hook mic-detect into hp-event
+		 */
+		rtd = snd_soc_get_pcm_runtime(card, &card->dai_link[0]);
+		component = asoc_rtd_to_codec(rtd, 0)->component;
+		if (!(strcmp(component->name, "wm8962.2-001a")) && !is_hp) {
+			pin_name = "Headset Mic";
+			sjack->pin.pin		= pin_name;
+			sjack->pin.mask		= mask;
+			snd_soc_card_jack_new(card, pin_name, mask,
+					      &sjack->jack,
+					      &sjack->pin, 1);
+			wm8962_mic_detect(component, &sjack->jack);
+		}
 	}
 
 	return 0;
