@@ -416,7 +416,7 @@
 
 	vibrator {
 		compatible = "pwm-vibrator";
-		pwms = <&pwm1 0 1000000000 0>;
+		pwms = <&pwm1 0 10000000 0>;
 		pwm-names = "enable";
 		vcc-supply = <&reg_vdd_3v3>;
 	};
