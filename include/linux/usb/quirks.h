@@ -72,4 +72,10 @@
 /* device has endpoints that should be ignored */
 #define USB_QUIRK_ENDPOINT_IGNORE		BIT(15)
 
+/*
+ * Avoid resetting a port/device when it reports to be disconnected. Use
+ * this for permanently (on-board) connected devices only.
+ */
+#define USB_QUIRK_AVOID_RESET_RESUME		BIT(16)
+
 #endif /* __LINUX_USB_QUIRKS_H */

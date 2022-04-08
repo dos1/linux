@@ -1232,7 +1232,10 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 
 		} else if (udev->persist_enabled) {
 #ifdef CONFIG_PM
-			udev->reset_resume = 1;
+			if (udev->quirks & USB_QUIRK_AVOID_RESET_RESUME)
+				dev_warn(&port_dev->dev, "QUIRK: skip setting reset_resume.\n");
+			else
+				udev->reset_resume = 1;
 #endif
 			/* Don't set the change_bits when the device
 			 * was powered off.

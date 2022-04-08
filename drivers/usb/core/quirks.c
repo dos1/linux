@@ -487,6 +487,10 @@ static const struct usb_device_id usb_quirk_list[] = {
 	{ USB_DEVICE(0x1c75, 0x0204), .driver_info =
 			USB_QUIRK_CONFIG_INTF_STRINGS },
 
+	/* Broadmobi 818 4G modem */
+	{ USB_DEVICE(0x2020, 0x2060), .driver_info =
+			USB_QUIRK_AVOID_RESET_RESUME },
+
 	/* Acer C120 LED Projector */
 	{ USB_DEVICE(0x1de1, 0xc102), .driver_info = USB_QUIRK_NO_LPM },
 
