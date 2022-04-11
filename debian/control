@@ -33,6 +33,7 @@ Breaks:
  librem5-devkit-base (<< 0.0.10),
  librem5-base-defaults (<< 48pureos1~),
  megapixels (<< 0.17.0),
+ millipixels (<< 0.19.0-1pureos1),
  phosh (<< 0.12.0),
 Description: Linux 5.17 for the Librem 5 and its devkit
   The linux kernel, modules and corresponding other files for the Librem 5 and
