@@ -27,8 +27,8 @@
 };
 
 &i2c4 {
-	/delete-node/ camera-rear@2d;
-	camera-rear@10 {
+	/delete-node/ camera@2d;
+	camera@10 {
 		compatible = "samsung,s5k3l6xx";
 		reg = <0x10>;
 		pinctrl-names = "default";

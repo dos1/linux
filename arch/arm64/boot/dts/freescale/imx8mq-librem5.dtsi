@@ -1365,7 +1365,7 @@
 	};
 
 	/* Samsung S5K3L6XX - 13MP Rear-Facing Camera */
-	camera-rear@2d {
+	camera@2d {
 		compatible = "samsung,s5k3l6xx";
 		reg = <0x2d>;
 		pinctrl-names = "default";
