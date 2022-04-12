@@ -71,6 +71,15 @@ struct imx8m_ddrc {
 	struct clk *dram_pll;
 	struct clk *dram_alt;
 	struct clk *dram_apb;
+	struct clk *main_axi;
+	struct clk *ahb;
+	struct clk *sys2_pll_333m;
+	struct clk *osc_25m;
+
+	unsigned long suspend_rate;
+	unsigned long resume_rate;
+
+	unsigned long ahb_initial_freq;
 
 	int freq_count;
 	struct imx8m_ddrc_freq freq_table[IMX8M_DDRC_MAX_FREQ_COUNT];
@@ -268,7 +277,36 @@ static int imx8m_ddrc_target(struct device *dev, unsigned long *freq, u32 flags)
 		dev_dbg(dev, "ddrc freq set to %lu (was %lu)\n",
 			*freq, old_freq);
 
+	/* XXX hack inspired by drivers/soc/imx/busfreq-imx8mq.c in linux-imx */
+	if (DIV_ROUND_CLOSEST(new_freq, 250000) == 100) {
+		if (priv->ahb)
+			clk_set_rate(priv->ahb, priv->ahb_initial_freq / 6);
+		if (priv->main_axi && priv->osc_25m && priv->sys2_pll_333m)
+			clk_set_parent(priv->main_axi, priv->osc_25m);
+	} else {
+		if (priv->ahb)
+			clk_set_rate(priv->ahb, priv->ahb_initial_freq);
+		if (priv->main_axi && priv->osc_25m && priv->sys2_pll_333m)
+			clk_set_parent(priv->main_axi, priv->sys2_pll_333m);
+	}
+
 	return ret;
+}
+
+static int imx8m_ddrc_suspend(struct device *dev)
+{
+	struct imx8m_ddrc *priv = dev_get_drvdata(dev);
+
+	priv->resume_rate = clk_get_rate(priv->dram_core);
+
+	return imx8m_ddrc_target(dev, &priv->suspend_rate, 0);
+}
+
+static int imx8m_ddrc_resume(struct device *dev)
+{
+	struct imx8m_ddrc *priv = dev_get_drvdata(dev);
+
+	return imx8m_ddrc_target(dev, &priv->resume_rate, 0);
 }
 
 static int imx8m_ddrc_get_cur_freq(struct device *dev, unsigned long *freq)
@@ -321,6 +359,8 @@ static int imx8m_ddrc_init_freq_info(struct device *dev)
 		if (freq->dram_core_parent_index == 2 &&
 				freq->dram_alt_parent_index == 0)
 			return -ENODEV;
+		if (index == 0)
+			priv->suspend_rate = freq->rate * 250000;
 	}
 
 	return 0;
@@ -406,6 +446,30 @@ static int imx8m_ddrc_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to fetch apb clock: %d\n", ret);
 		return ret;
 	}
+	priv->main_axi = devm_clk_get(dev, "main_axi");
+	if (IS_ERR(priv->main_axi)) {
+		ret = PTR_ERR(priv->main_axi);
+		dev_err(dev, "failed to fetch main_axi clock: %d\n", ret);
+		priv->main_axi = NULL;
+	}
+	priv->ahb = devm_clk_get(dev, "ahb");
+	if (IS_ERR(priv->ahb)) {
+		ret = PTR_ERR(priv->ahb);
+		dev_err(dev, "failed to fetch ahb clock: %d\n", ret);
+		priv->ahb = NULL;
+	}
+	priv->osc_25m = devm_clk_get(dev, "osc_25m");
+	if (IS_ERR(priv->osc_25m)) {
+		ret = PTR_ERR(priv->osc_25m);
+		dev_err(dev, "failed to fetch osc_25m clock: %d\n", ret);
+		priv->osc_25m = NULL;
+	}
+	priv->sys2_pll_333m = devm_clk_get(dev, "sys2_pll_333m");
+	if (IS_ERR(priv->sys2_pll_333m)) {
+		ret = PTR_ERR(priv->sys2_pll_333m);
+		dev_err(dev, "failed to fetch sys2_pll_333m clock: %d\n", ret);
+		priv->sys2_pll_333m = NULL;
+	}
 
 	ret = dev_pm_opp_of_add_table(dev);
 	if (ret < 0) {
@@ -421,6 +485,12 @@ static int imx8m_ddrc_probe(struct platform_device *pdev)
 	priv->profile.exit = imx8m_ddrc_exit;
 	priv->profile.get_cur_freq = imx8m_ddrc_get_cur_freq;
 	priv->profile.initial_freq = clk_get_rate(priv->dram_core);
+
+	priv->ahb_initial_freq = clk_get_rate(priv->ahb);
+	if (priv->ahb_initial_freq == 0) {
+		dev_err(dev, "could not read ahb clock rate\n");
+		priv->ahb_initial_freq = 133333333;
+	}
 
 	priv->devfreq = devm_devfreq_add_device(dev, &priv->profile,
 						gov, NULL);
@@ -443,10 +513,15 @@ static const struct of_device_id imx8m_ddrc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, imx8m_ddrc_of_match);
 
+static const struct dev_pm_ops imx8m_ddrc_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(imx8m_ddrc_suspend, imx8m_ddrc_resume)
+};
+
 static struct platform_driver imx8m_ddrc_platdrv = {
 	.probe		= imx8m_ddrc_probe,
 	.driver = {
 		.name	= "imx8m-ddrc-devfreq",
+		.pm = &imx8m_ddrc_pm_ops,
 		.of_match_table = imx8m_ddrc_of_match,
 	},
 };
