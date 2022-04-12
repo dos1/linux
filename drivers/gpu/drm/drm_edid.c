@@ -1657,6 +1657,69 @@ bool drm_edid_are_equal(const struct edid *edid1, const struct edid *edid2)
 }
 EXPORT_SYMBOL(drm_edid_are_equal);
 
+
+static void edid_vendor_string(const struct edid *edid, char vendor[4])
+{
+	vendor[0] = ((edid->mfg_id[0] & 0x7c) >> 2) + '@';
+	vendor[1] = (((edid->mfg_id[0] & 0x3) << 3) |
+			  ((edid->mfg_id[1] & 0xe0) >> 5)) + '@';
+	vendor[2] = (edid->mfg_id[1] & 0x1f) + '@';
+}
+
+static const struct edid_checksum_quirk {
+	char vendor[4];
+	int product_id;
+	u32 block;
+	u32 csum;
+} edid_checksum_quirk_list[] = {
+	/* NexDock Touch (NDK2014) */
+	{ "RTK", 0x2a3b, 0, 65 },
+};
+
+/**
+ * edid_vendor - match a string against EDID's obfuscated vendor field
+ * @edid: EDID to match
+ * @vendor: vendor string
+ *
+ * Returns true if @vendor is in @edid, false otherwise
+ */
+static bool edid_vendor(const struct edid *edid, const char *vendor)
+{
+	char edid_vendor[3];
+
+	edid_vendor[0] = ((edid->mfg_id[0] & 0x7c) >> 2) + '@';
+	edid_vendor[1] = (((edid->mfg_id[0] & 0x3) << 3) |
+			 ((edid->mfg_id[1] & 0xe0) >> 5)) + '@';
+	edid_vendor[2] = (edid->mfg_id[1] & 0x1f) + '@';
+
+	return !strncmp(edid_vendor, vendor, 3);
+}
+
+static bool
+checksum_quirk(const struct edid *edid, u32 block, u32 csum)
+{
+	const struct edid_checksum_quirk *quirk;
+	char vendor[4];
+	int i;
+
+	edid_vendor_string(edid, vendor);
+
+	for (i = 0; i < ARRAY_SIZE(edid_checksum_quirk_list); i++) {
+		quirk = &edid_checksum_quirk_list[i];
+		if (edid_vendor(edid, quirk->vendor) &&
+		    (EDID_PRODUCT_ID(edid) == quirk->product_id) &&
+		    block == quirk->block && csum == quirk->csum) {
+			DRM_DEBUG("Found checksum quirk for %s 0x%x %d %d\n",
+				  vendor, EDID_PRODUCT_ID(edid), block, csum);
+			return true;
+		}
+	}
+
+	DRM_DEBUG("No checksum quirk for %s 0x%x %d %d\n", vendor,
+		  EDID_PRODUCT_ID(edid), block, csum);
+	return false;
+}
+
 /**
  * drm_edid_block_valid - Sanity check the EDID block (base or extension)
  * @raw_edid: pointer to raw EDID block
@@ -1714,6 +1777,9 @@ bool drm_edid_block_valid(u8 *raw_edid, int block, bool print_bad_edid,
 			DRM_DEBUG("EDID checksum is invalid, remainder is %d\n", csum);
 			DRM_DEBUG("Assuming a KVM switch modified the CEA block but left the original checksum\n");
 		} else {
+			if (checksum_quirk (edid, 0, csum))
+				return true;
+
 			if (print_bad_edid)
 				DRM_NOTE("EDID checksum is invalid, remainder is %d\n", csum);
 

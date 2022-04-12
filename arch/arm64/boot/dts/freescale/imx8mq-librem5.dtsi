@@ -107,12 +107,6 @@
 			retain-state-suspended;
 		};
 
-		chg-otg-en {
-			label = "chg_otg_en";
-			gpios = <&gpio3 4 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
 		hub-nreset {
 			label = "hub_nreset";
 			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
@@ -526,6 +520,11 @@
 		fsl,pins = <
 			/* CHG_EN */
 			MX8MQ_IOMUXC_NAND_CE1_B_GPIO3_IO2	0x3
+		>;
+	};
+
+	pinctrl_otg: otggrp {
+		fsl,pins = <
 			/* CHG_OTG_OUT_EN */
 			MX8MQ_IOMUXC_NAND_CE3_B_GPIO3_IO4	0x3
 		>;
@@ -1012,6 +1011,10 @@
 		interrupt-names = "irq";
 
 		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "dual";
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -1412,7 +1415,7 @@
 		compatible = "ti,bq25895", "ti,bq25890";
 		reg = <0x6a>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_charger_in>;
+		pinctrl-0 = <&pinctrl_charger_in>, <&pinctrl_otg>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
 		phys = <&usb3_phy0>;
@@ -1426,6 +1429,7 @@
 		ti,vinmin-threshold = <3900000>; /* uV */
 		monitored-battery = <&bat>;
 		power-supplies = <&typec_pd>;
+		otg-gpios = <&gpio3 4 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -1611,6 +1615,10 @@
 	#size-cells = <0>;
 	dr_mode = "otg";
 	snps,dis_u3_susphy_quirk;
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	usb-role-switch;
 	status = "okay";
 
 	port@0 {

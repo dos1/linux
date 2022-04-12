@@ -46,6 +46,31 @@
 	shutdown-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;
 };
 
+/delete-node/ &dcss_dsi_out;
+/delete-node/ &mipi_dsi_dcss_in;
+&dcss {
+	status = "okay";
+
+	port@0 {
+		dcss_dp_out: endpoint {
+			remote-endpoint = <&hdmi_in>;
+		};
+	};
+};
+
+&hdmi {
+	compatible = "nxp,imx8mq-cdns-dp";
+	extcon = <&typec_pd>;
+	lane-mapping = <0xc6>;
+	status = "okay";
+
+	port@1 {
+		hdmi_in: endpoint {
+			remote-endpoint = <&dcss_dp_out>;
+		};
+	};
+};
+
 &iomuxc {
 	pinctrl_r3_camera_pwr: r3camerapwrgrp {
 		fsl,pins = <
