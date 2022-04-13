@@ -1,3 +1,25 @@
+linux-librem5 (5.16.19pureos1) byzantium; urgency=medium
+
+  [ Martin Kepplinger ]
+  * [79f65c2a] librem5_defconfig: enable pressure stall information by default
+  * [0c0ecc7c] arm64: dts: imx8mq-librem5: use mainline front camera DT node name
+  * [8bae677d] arm64: dts: imx8mq-librem5: change rear cam DT node name
+  * [e8dd5449] d/control: add new dependency to millipixels
+  * [d2aa16ec] Merge tag 'v5.16.19' into stable/5.16.19
+
+  [ Sebastian Krzyszkowiak ]
+  * [37886e40] max17042_battery: Don't spam logs when probe is deferred
+  * [9b0ad84c] dts: imx8mq-librem5: Add bq25895 as max17055's power supply
+  * [25187d76] power: supply: max17042_battery: Use Current register in get_status
+  * [5312f00b] dts: imx8mq-librem5: Describe MIC_2V4 regulator
+  * [625ba40f] librem5_defconfig: Enable ALSA sequencer
+  * [72b255e2] librem5_defconfig: Enable TTY LED trigger
+  * [a84eec34] librem5_defconfig: Enable more filesystems
+  * [7742f1c9] librem5_defconfig: Enable more NLS codepages and set utf8 as default
+  * [4ea40bc4] librem5_defconfig: Enable more HID devices
+
+ -- Martin Kepplinger <martin.kepplinger@puri.sm>  Wed, 13 Apr 2022 12:53:52 +0200
+
 linux-next-librem5 (5.17.2pureos1) byzantium; urgency=medium
 
   [ Martin Kepplinger ]
