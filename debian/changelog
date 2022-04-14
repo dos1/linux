@@ -1,3 +1,10 @@
+linux-librem5 (5.17.3pureos1) byzantium; urgency=medium
+
+  [ Martin Kepplinger ]
+  * update debian package dependencies for millipixels and flash-kernel
+
+ -- Martin Kepplinger <martin.kepplinger@puri.sm>  Thu, 19 Apr 2022 09:27:16 +0100
+
 linux-librem5 (5.16.19pureos1) byzantium; urgency=medium
 
   [ Martin Kepplinger ]

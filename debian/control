@@ -1,4 +1,4 @@
-Source: linux-next-librem5
+Source: linux-librem5
 Section: kernel
 Priority: optional
 Maintainer: Purism Kernel Team <kernel@puri.sm>
