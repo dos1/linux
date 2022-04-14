@@ -24,7 +24,7 @@ Vcs-Browser: https://source.puri.sm/Librem5/linux
 Package: linux-image-5.17.0-1-librem5
 Architecture: arm64
 Depends:
- flash-kernel,
+ flash-kernel (>= 3.102.0pureos6),
  initramfs-tools,
  kmod,
  linux-base,
