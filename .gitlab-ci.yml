@@ -17,6 +17,7 @@ before_script:
     - librem5
 
 build:aarch64:
+  image: pureos/byzantium
   tags:
     - librem5
   stage: build
@@ -42,6 +43,7 @@ build:aarch64:
     expire_in: 1 week
 
 build:deb:
+  image: pureos/byzantium
   tags:
     - librem5:arm64
   stage: build
